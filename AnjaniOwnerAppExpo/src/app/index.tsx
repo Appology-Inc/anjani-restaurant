@@ -1478,14 +1478,15 @@ export default function App() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* In-flow brand — appears just above the login form */}
+            {/* In-flow brand — compact single line just above the login form */}
             {!currentUser && (
               <Animated.View
                 style={[styles.loginBrand, { opacity: authOpacity, transform: [{ translateY: formTranslateY }] }]}
                 pointerEvents="none"
               >
-                <Text style={styles.title}>ANJANI</Text>
-                <Text style={styles.titleSecond}>RESTAURANT</Text>
+                <Text style={styles.compactTitle}>
+                  ANJANI <Text style={{ fontWeight: '300' }}>RESTAURANT</Text>
+                </Text>
                 <AnimatedDeliveryTrack />
               </Animated.View>
             )}
@@ -1711,7 +1712,7 @@ const styles = StyleSheet.create({
   },
   loginBrand: {
     alignItems: 'center',
-    marginBottom: normalize(12),
+    marginBottom: normalize(10),
     paddingHorizontal: normalize(20),
   },
   brandBox: {
