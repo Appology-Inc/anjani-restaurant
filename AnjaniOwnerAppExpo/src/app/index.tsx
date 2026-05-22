@@ -54,97 +54,406 @@ const CAT_ICONS: Record<string, string> = {
   "Snacks": "🍟"
 };
 
-function AnimatedDeliveryTrack() {
-  const travelAnim = useRef(new Animated.Value(0)).current;
-  const [iconPhase, setIconPhase] = useState<'food' | 'rider' | 'home'>('food');
+function AnimatedDeliveryTrackOrbit() {
+  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const duration = 3200; // Muted, premium glide speed
-    
-    // Smooth infinite horizontal travel loop using native driver (smooth 60fps)
-    const runAnim = () => {
-      travelAnim.setValue(0);
-      setIconPhase('food');
-      
-      Animated.timing(travelAnim, {
-        toValue: 1,
-        duration: duration,
+    // 3D rotation loop
+    const animation = Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 360,
+        duration: 8000, // Cinematic slow rotation
         useNativeDriver: true,
-      }).start((result) => {
-        if (result.finished) {
-          runAnim();
-        }
-      });
-    };
+      })
+    );
+    animation.start();
     
-    runAnim();
-
-    // Timers for phase transitions (food -> rider -> home) coordinated with animation duration
-    let t1: NodeJS.Timeout;
-    let t2: NodeJS.Timeout;
-    let t3: NodeJS.Timeout;
-    
-    const startTimers = () => {
-      t1 = setTimeout(() => setIconPhase('rider'), duration * 0.33);
-      t2 = setTimeout(() => setIconPhase('home'), duration * 0.66);
-      t3 = setTimeout(() => {
-        startTimers();
-      }, duration);
-    };
-    
-    startTimers();
-
-    return () => {
-      travelAnim.stopAnimation();
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    return () => animation.stop();
   }, []);
 
-  const trackWidth = normalize(120);
-  const containerSize = normalize(18);
-  const translateX = travelAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, trackWidth - containerSize],
-  });
-
-  // Soft fade in at start and fade out at destination to look holographic
-  const iconOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.15, 0.85, 1],
-    outputRange: [0, 1, 1, 0],
-  });
-
-  const getIconName = () => {
-    switch (iconPhase) {
-      case 'food':
-        return 'pizza-outline';
-      case 'rider':
-        return 'bicycle-outline';
-      case 'home':
-        return 'home-outline';
+  const get3DInterpolations = (offsetDegrees: number) => {
+    const Rx = normalize(50);
+    const Ry = normalize(8);
+    
+    const keyframes = [];
+    const xOutputs = [];
+    const yOutputs = [];
+    const scaleOutputs = [];
+    const opacityOutputs = [];
+    
+    for (let i = 0; i <= 12; i++) {
+      const degree = i * 30;
+      keyframes.push(degree);
+      
+      const rad = ((degree + offsetDegrees) * Math.PI) / 180;
+      const cosVal = Math.cos(rad);
+      const sinVal = Math.sin(rad); // depth representation
+      
+      xOutputs.push(cosVal * Rx);
+      yOutputs.push(sinVal * Ry);
+      
+      const scale = 0.95 + sinVal * 0.22;
+      scaleOutputs.push(scale);
+      
+      const opacity = 0.65 + sinVal * 0.35;
+      opacityOutputs.push(opacity);
     }
+    
+    return {
+      translateX: rotateAnim.interpolate({ inputRange: keyframes, outputRange: xOutputs }),
+      translateY: rotateAnim.interpolate({ inputRange: keyframes, outputRange: yOutputs }),
+      scale: rotateAnim.interpolate({ inputRange: keyframes, outputRange: scaleOutputs }),
+      opacity: rotateAnim.interpolate({ inputRange: keyframes, outputRange: opacityOutputs }),
+    };
   };
+
+  const foodAnim = get3DInterpolations(0);
+  const riderAnim = get3DInterpolations(120);
+  const homeAnim = get3DInterpolations(240);
 
   return (
     <View style={styles.trackContainer}>
-      {/* Sleek Minimal Track Line */}
-      <View style={styles.trackRoad} />
+      {/* 3D Perspective Ellipse Ring */}
+      <View style={styles.orbitalRing} />
       
-      {/* Gliding Minimal Icon (Dematerializes at edges) */}
+      {/* 1. Food Glider */}
       <Animated.View 
         style={[
-          styles.travelingIcon, 
+          styles.orbitalIcon, 
           { 
-            opacity: iconOpacity,
+            opacity: foodAnim.opacity,
             transform: [
-              { translateX }
+              { translateX: foodAnim.translateX },
+              { translateY: foodAnim.translateY },
+              { scale: foodAnim.scale }
             ] 
           }
         ]}
       >
-        <Ionicons name={getIconName() as any} size={normalize(13)} color="#FF6D00" />
+        <Ionicons name="pizza-outline" size={normalize(13)} color="#FF6D00" />
       </Animated.View>
+
+      {/* 2. Rider Glider */}
+      <Animated.View 
+        style={[
+          styles.orbitalIcon, 
+          { 
+            opacity: riderAnim.opacity,
+            transform: [
+              { translateX: riderAnim.translateX },
+              { translateY: riderAnim.translateY },
+              { scale: riderAnim.scale }
+            ] 
+          }
+        ]}
+      >
+        <Ionicons name="bicycle-outline" size={normalize(13)} color="#FF6D00" />
+      </Animated.View>
+
+      {/* 3. Home Glider */}
+      <Animated.View 
+        style={[
+          styles.orbitalIcon, 
+          { 
+            opacity: homeAnim.opacity,
+            transform: [
+              { translateX: homeAnim.translateX },
+              { translateY: homeAnim.translateY },
+              { scale: homeAnim.scale }
+            ] 
+          }
+        ]}
+      >
+        <Ionicons name="home-outline" size={normalize(13)} color="#FF6D00" />
+      </Animated.View>
+    </View>
+  );
+}
+
+function BackgroundEmbers() {
+  const embers = useRef(
+    Array.from({ length: 15 }).map(() => ({
+      x: Math.random() * SCREEN_W,
+      yStart: SCREEN_H * 0.85 + Math.random() * SCREEN_H * 0.15,
+      anim: new Animated.Value(0),
+      size: 2 + Math.random() * 3,
+      duration: 6000 + Math.random() * 5000,
+      delay: Math.random() * 5000,
+    }))
+  ).current;
+
+  useEffect(() => {
+    embers.forEach((ember) => {
+      const run = () => {
+        ember.anim.setValue(0);
+        Animated.sequence([
+          Animated.delay(ember.delay),
+          Animated.timing(ember.anim, {
+            toValue: 1,
+            duration: ember.duration,
+            useNativeDriver: true,
+          })
+        ]).start(() => {
+          ember.delay = 0;
+          run();
+        });
+      };
+      run();
+    });
+  }, []);
+
+  return (
+    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+      {embers.map((ember, i) => {
+        const translateY = ember.anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [ember.yStart, -40],
+        });
+        const translateX = ember.anim.interpolate({
+          inputRange: [0, 0.4, 0.8, 1],
+          outputRange: [
+            ember.x,
+            ember.x + (i % 2 === 0 ? 15 : -15),
+            ember.x + (i % 2 === 0 ? 30 : -30),
+            ember.x + (i % 2 === 0 ? 40 : -40),
+          ],
+        });
+        const opacity = ember.anim.interpolate({
+          inputRange: [0, 0.1, 0.8, 1],
+          outputRange: [0, 0.75, 0.75, 0],
+        });
+        const scale = ember.anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0.3],
+        });
+
+        return (
+          <Animated.View
+            key={`ember-${i}`}
+            style={{
+              position: 'absolute',
+              width: ember.size,
+              height: ember.size,
+              borderRadius: ember.size / 2,
+              backgroundColor: '#FF6D00',
+              opacity,
+              transform: [{ translateX }, { translateY }, { scale }],
+              shadowColor: '#FF6D00',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.8,
+              shadowRadius: 3,
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function AnimatedDeliveryTrack() {
+  const breatheAnim = useRef(new Animated.Value(0)).current;
+  const rippleAnim = useRef(new Animated.Value(0)).current;
+  
+  // Wavy steam lines (3 of them)
+  const steam1 = useRef(new Animated.Value(0)).current;
+  const steam2 = useRef(new Animated.Value(0)).current;
+  const steam3 = useRef(new Animated.Value(0)).current;
+
+  // Embers sparks (3 of them)
+  const sparkAnims = useRef([
+    { anim: new Animated.Value(0), angle: 45 },
+    { anim: new Animated.Value(0), angle: 135 },
+    { anim: new Animated.Value(0), angle: 270 },
+  ]).current;
+
+  useEffect(() => {
+    // 1. Slow breathing chef core
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breatheAnim, { toValue: 1, duration: 2500, useNativeDriver: true }),
+        Animated.timing(breatheAnim, { toValue: 0, duration: 2500, useNativeDriver: true }),
+      ])
+    );
+    breathe.start();
+
+    // 2. Concentric expanding scent ripples
+    const ripples = Animated.loop(
+      Animated.timing(rippleAnim, {
+        toValue: 1,
+        duration: 3600,
+        useNativeDriver: true,
+      })
+    );
+    ripples.start();
+
+    // 3. Staggered rising steam columns
+    const runSteam = (val: Animated.Value, delay: number, duration: number) => {
+      const loop = () => {
+        val.setValue(0);
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(val, { toValue: 1, duration, useNativeDriver: true })
+        ]).start(() => {
+          runSteam(val, 0, duration);
+        });
+      };
+      loop();
+    };
+    runSteam(steam1, 0, 2200);
+    runSteam(steam2, 700, 2500);
+    runSteam(steam3, 1400, 2000);
+
+    // 4. Staggered sparks shooting from top
+    sparkAnims.forEach((spark, idx) => {
+      const runSpark = () => {
+        spark.anim.setValue(0);
+        Animated.sequence([
+          Animated.delay(idx * 700),
+          Animated.timing(spark.anim, { toValue: 1, duration: 1600, useNativeDriver: true })
+        ]).start(() => {
+          runSpark();
+        });
+      };
+      runSpark();
+    });
+
+    return () => {
+      breathe.stop();
+      ripples.stop();
+    };
+  }, []);
+
+  // Steam interpolators helper
+  const getSteamStyles = (anim: Animated.Value, xOffset: number) => {
+    const translateY = anim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [normalize(8), -normalize(26)],
+    });
+    const translateX = anim.interpolate({
+      inputRange: [0, 0.35, 0.7, 1],
+      outputRange: [xOffset, xOffset + 6, xOffset - 6, xOffset],
+    });
+    const opacity = anim.interpolate({
+      inputRange: [0, 0.2, 0.8, 1],
+      outputRange: [0, 0.75, 0.75, 0],
+    });
+    const scale = anim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.65, 1.25],
+    });
+    return { transform: [{ translateX }, { translateY }, { scale }], opacity };
+  };
+
+  return (
+    <View style={styles.trackContainer}>
+      {/* Aroma Scent expanding ripples */}
+      <Animated.View style={[
+        styles.aromaRipple,
+        {
+          transform: [{
+            scale: rippleAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.6, 2.2],
+            })
+          }],
+          opacity: rippleAnim.interpolate({
+            inputRange: [0, 0.2, 0.8, 1],
+            outputRange: [0, 0.45, 0.45, 0],
+          })
+        }
+      ]} />
+      <Animated.View style={[
+        styles.aromaRipple,
+        {
+          transform: [{
+            scale: rippleAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.6, 2.2],
+            })
+          }],
+          opacity: rippleAnim.interpolate({
+            inputRange: [0, 0.4, 0.9, 1],
+            outputRange: [0, 0.35, 0.35, 0],
+          }),
+          left: -normalize(40),
+          top: -normalize(40),
+          width: normalize(80),
+          height: normalize(80),
+          borderRadius: normalize(40),
+        }
+      ]} />
+
+      {/* Steaming Column 1 */}
+      <Animated.View style={[styles.steamWhisp, getSteamStyles(steam1, -normalize(10))]}>
+        <MaterialCommunityIcons name="weather-windy" size={normalize(12)} color="rgba(255, 109, 0, 0.45)" style={{ transform: [{ rotate: '-90deg' }] }} />
+      </Animated.View>
+
+      {/* Steaming Column 2 (Middle) */}
+      <Animated.View style={[styles.steamWhisp, getSteamStyles(steam2, 0)]}>
+        <MaterialCommunityIcons name="weather-windy" size={normalize(10)} color="rgba(255, 109, 0, 0.35)" style={{ transform: [{ rotate: '-90deg' }] }} />
+      </Animated.View>
+
+      {/* Steaming Column 3 */}
+      <Animated.View style={[styles.steamWhisp, getSteamStyles(steam3, normalize(10))]}>
+        <MaterialCommunityIcons name="weather-windy" size={normalize(12)} color="rgba(255, 109, 0, 0.45)" style={{ transform: [{ rotate: '-90deg' }] }} />
+      </Animated.View>
+
+      {/* Culinary Emblem Core */}
+      <Animated.View style={[
+        styles.orbitalCore,
+        {
+          transform: [{
+            scale: breatheAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.94, 1.08],
+            })
+          }],
+          opacity: breatheAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.85, 1.0],
+          })
+        }
+      ]}>
+        <View style={styles.coreGlow} />
+        <MaterialCommunityIcons name="chef-hat" size={normalize(15)} color="#FF6D00" />
+      </Animated.View>
+
+      {/* Sparks shooting outward */}
+      {sparkAnims.map((spark, i) => {
+        const rad = (spark.angle * Math.PI) / 180;
+        const targetX = Math.cos(rad) * normalize(24);
+        const targetY = Math.sin(rad) * normalize(12);
+
+        const translateX = spark.anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, targetX],
+        });
+        const translateY = spark.anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-normalize(10), targetY - normalize(10)],
+        });
+        const opacity = spark.anim.interpolate({
+          inputRange: [0, 0.2, 0.8, 1],
+          outputRange: [0, 0.85, 0.85, 0],
+        });
+        const scale = spark.anim.interpolate({
+          inputRange: [0, 0.2, 1],
+          outputRange: [0.2, 1, 0.3],
+        });
+
+        return (
+          <Animated.View
+            key={`spark-${i}`}
+            style={[
+              styles.sparkDot,
+              {
+                transform: [{ translateX }, { translateY }, { scale }],
+                opacity
+              }
+            ]}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -172,6 +481,9 @@ export default function App() {
   const titleTranslateY = useRef(new Animated.Value(SCREEN_H * 0.24)).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
   const keyboardAnim = useRef(new Animated.Value(0)).current;
+  const emailGlow = useRef(new Animated.Value(0)).current;
+  const passwordGlow = useRef(new Animated.Value(0)).current;
+  const brandBreathe = useRef(new Animated.Value(0)).current;
 
   // --- Auth Form States ---
   const [activeAuthTab, setActiveAuthTab] = useState<'signin' | 'signup'>('signin');
@@ -269,6 +581,14 @@ export default function App() {
             Animated.timing(imageTranslateX, { toValue: -20, duration: 18000, useNativeDriver: true }),
             Animated.timing(imageTranslateX, { toValue: 0, duration: 18000, useNativeDriver: true })
           ])
+        ])
+      ).start();
+
+      // 2b. Start title volumetric glow breathing loop
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(brandBreathe, { toValue: 1, duration: 3500, useNativeDriver: true }),
+          Animated.timing(brandBreathe, { toValue: 0, duration: 3500, useNativeDriver: true }),
         ])
       ).start();
 
@@ -1049,6 +1369,9 @@ export default function App() {
         <Animated.View style={[styles.overlay, { opacity: splashOpacity, backgroundColor: 'rgba(0, 0, 0, 0.75)' }]} pointerEvents="none" />
         <Animated.View style={[styles.overlay, { opacity: authOpacity, backgroundColor: 'rgba(0, 0, 0, 0.65)' }]} pointerEvents="none" />
 
+        {/* GPU-Accelerated Background Embers Engine */}
+        <BackgroundEmbers />
+
         <KeyboardAvoidingView 
           style={{ flex: 1, backgroundColor: 'transparent' }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1077,6 +1400,40 @@ export default function App() {
                 }
               ]}
             >
+              {/* Volumetric Backlight Glow */}
+              <Animated.View 
+                style={[
+                  styles.volumetricGlow,
+                  {
+                    opacity: keyboardBrandOpacity,
+                  }
+                ]}
+                pointerEvents="none"
+              >
+                <Animated.View 
+                  style={{
+                    width: normalize(200),
+                    height: normalize(80),
+                    borderRadius: normalize(40),
+                    backgroundColor: '#FF6B00',
+                    shadowColor: '#FF6B00',
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.95,
+                    shadowRadius: 55,
+                    opacity: brandBreathe.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.15, 0.28],
+                    }),
+                    transform: [{
+                      scale: brandBreathe.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.25],
+                      })
+                    }]
+                  }}
+                />
+              </Animated.View>
+
               {/* Cinematic (Two-line) Title */}
               <Animated.View style={{ opacity: brandCinematicOpacity, alignItems: 'center', width: '100%' }}>
                 <Text style={styles.title}>ANJANI</Text>
@@ -1126,29 +1483,47 @@ export default function App() {
 
                 {/* Form */}
                 <View style={styles.formContainer}>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="mail-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
-                    <TextInput 
-                      style={styles.input}
-                      placeholder="Administrative Email"
-                      placeholderTextColor="#888"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      value={email}
-                      onChangeText={setEmail}
-                    />
+                  <View style={{ position: 'relative' }}>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="mail-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
+                      <TextInput 
+                        style={styles.input}
+                        placeholder="Administrative Email"
+                        placeholderTextColor="#888"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        value={email}
+                        onChangeText={setEmail}
+                        onFocus={() => {
+                          Animated.timing(emailGlow, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+                        }}
+                        onBlur={() => {
+                          Animated.timing(emailGlow, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+                        }}
+                      />
+                    </View>
+                    <Animated.View style={[styles.inputWrapperActiveBorder, { opacity: emailGlow }]} pointerEvents="none" />
                   </View>
 
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="lock-closed-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
-                    <TextInput 
-                      style={styles.input}
-                      placeholder="Security Password"
-                      placeholderTextColor="#888"
-                      secureTextEntry
-                      value={password}
-                      onChangeText={setPassword}
-                    />
+                  <View style={{ position: 'relative' }}>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="lock-closed-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
+                      <TextInput 
+                        style={styles.input}
+                        placeholder="Security Password"
+                        placeholderTextColor="#888"
+                        secureTextEntry
+                        value={password}
+                        onChangeText={setPassword}
+                        onFocus={() => {
+                          Animated.timing(passwordGlow, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+                        }}
+                        onBlur={() => {
+                          Animated.timing(passwordGlow, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+                        }}
+                      />
+                    </View>
+                    <Animated.View style={[styles.inputWrapperActiveBorder, { opacity: passwordGlow }]} pointerEvents="none" />
                   </View>
 
                   {error ? (
@@ -1369,28 +1744,97 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   trackContainer: {
-    width: normalize(120),
-    height: normalize(20),
+    width: normalize(140),
+    height: normalize(44),
     justifyContent: 'center',
-    marginVertical: normalize(16),
+    alignItems: 'center',
+    marginVertical: normalize(12),
     position: 'relative',
-    alignItems: 'flex-start',
   },
-  trackRoad: {
-    height: 1.5,
-    backgroundColor: 'rgba(255, 107, 0, 0.18)',
-    borderRadius: 1,
+  orbitalRing: {
+    width: normalize(100),
+    height: normalize(16),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.15)',
+    borderRadius: normalize(50),
     position: 'absolute',
-    left: 0,
-    right: 0,
   },
-  travelingIcon: {
-    width: normalize(18),
-    height: normalize(18),
+  orbitalIcon: {
+    position: 'absolute',
+    width: normalize(20),
+    height: normalize(20),
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  aromaRipple: {
     position: 'absolute',
-    left: 0,
+    width: normalize(60),
+    height: normalize(60),
+    borderRadius: normalize(30),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 109, 0, 0.15)',
+  },
+  steamWhisp: {
+    position: 'absolute',
+    width: normalize(20),
+    height: normalize(20),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orbitalCore: {
+    position: 'absolute',
+    width: normalize(32),
+    height: normalize(32),
+    borderRadius: normalize(16),
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 107, 0, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6D00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  coreGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: normalize(16),
+    backgroundColor: '#FF6D00',
+    opacity: 0.1,
+  },
+  sparkDot: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#FFE082',
+    shadowColor: '#FF6D00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
+  },
+  volumetricGlow: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FF6B00',
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 65,
+    top: '30%',
+    zIndex: -1,
+  },
+  inputWrapperActiveBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 1.5,
+    borderColor: '#FF6D00',
+    borderRadius: normalize(10),
+    shadowColor: '#FF6D00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
   },
   divider: {
     width: normalize(50),
