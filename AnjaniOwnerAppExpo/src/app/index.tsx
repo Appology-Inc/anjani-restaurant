@@ -621,6 +621,11 @@ export default function App() {
     inputRange: [0, 1],
     outputRange: [1, 0.90],
   });
+  // Slide the form up to close the empty gap left by fading out the two-line title
+  const formKeyboardY = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -normalize(75)],
+  });
   const keyboardBrandOpacity = keyboardAnim.interpolate({
     inputRange: [0, 0.6],
     outputRange: [1, 0],
@@ -1466,6 +1471,7 @@ export default function App() {
               style={[
                 styles.brandBox, 
                 { 
+                  zIndex: 10,
                   transform: [
                     { translateY: titleTranslateY },
                     { scale: keyboardBrandScale }
@@ -1508,7 +1514,7 @@ export default function App() {
                     opacity: authOpacity, 
                     transform: [
                       { translateY: formTranslateY },
-                      { translateY: keyboardFormY }
+                      { translateY: formKeyboardY }
                     ] 
                   }
                 ]}
