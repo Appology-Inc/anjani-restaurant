@@ -19,7 +19,7 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ instructions?: string }>();
-  const { cart, getCartTotal, getCartCount, placeOrder, currentUser } = useAppStore();
+  const { cart, getCartTotal, getCartCount, placeOrder, currentUser, isRestaurantOpen, restaurantCloseReason } = useAppStore();
 
   const [paymentMethod, setPaymentMethod] = useState<'COD'|'GPAY'|'PHONEPE'|null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,6 +31,10 @@ export default function CheckoutScreen() {
   const cookingInstructions = params.instructions || '';
 
   const handlePlaceOrder = async () => {
+    if (!isRestaurantOpen) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return Alert.alert('Restaurant Closed', restaurantCloseReason || 'We are temporarily not accepting orders.');
+    }
     if (!paymentMethod) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return Alert.alert('Select Payment', 'Please choose a payment method to continue.');
@@ -188,12 +192,11 @@ export default function CheckoutScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* ─── Confirm Footer ─── */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
         <TouchableOpacity 
-          style={[styles.confirmBtn, isProcessing && styles.confirmBtnProcessing, !paymentMethod && styles.confirmBtnDisabled]} 
+          style={[styles.confirmBtn, (isProcessing || !isRestaurantOpen) && styles.confirmBtnProcessing, (!paymentMethod || !isRestaurantOpen) && styles.confirmBtnDisabled]} 
           onPress={handlePlaceOrder}
-          disabled={isProcessing}
+          disabled={isProcessing || !isRestaurantOpen}
           activeOpacity={0.85}
         >
           {isProcessing ? (
@@ -204,9 +207,9 @@ export default function CheckoutScreen() {
           ) : (
             <View style={styles.confirmBtnContent}>
               <Text style={styles.confirmBtnText}>
-                {paymentMethod ? `Pay ₹${grandTotal}` : 'Select Payment Method'}
+                {!isRestaurantOpen ? 'Restaurant is Closed' : paymentMethod ? `Pay ₹${grandTotal}` : 'Select Payment Method'}
               </Text>
-              {paymentMethod && <Ionicons name="shield-checkmark" size={18} color={Colors.white} />}
+              {paymentMethod && isRestaurantOpen && <Ionicons name="shield-checkmark" size={18} color={Colors.white} />}
             </View>
           )}
         </TouchableOpacity>

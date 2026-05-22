@@ -15,7 +15,7 @@ export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   
-  const { currentUser, menuItems, cart, addToCart, removeFromCart, activeOrder, getCartTotal, getCartCount } = useAppStore();
+  const { currentUser, menuItems, cart, addToCart, removeFromCart, activeOrder, getCartTotal, getCartCount, isRestaurantOpen, restaurantCloseReason } = useAppStore();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
@@ -184,6 +184,14 @@ export default function MenuScreen() {
   return (
     <View style={styles.container}>
       <View style={{ height: Math.max(insets.top, 12), backgroundColor: Colors.surface }} />
+      {!isRestaurantOpen && (
+        <View style={styles.closedBanner}>
+          <Ionicons name="warning" size={16} color={Colors.white} />
+          <Text style={styles.closedBannerText}>
+            Restaurant Closed: {restaurantCloseReason || 'Not taking orders'}
+          </Text>
+        </View>
+      )}
       
       <SectionList
         sections={sections}
@@ -264,6 +272,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.surface,
+  },
+  closedBanner: {
+    backgroundColor: '#EF4444',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  closedBannerText: {
+    color: Colors.white,
+    fontSize: 13,
+    fontWeight: '800',
   },
   header: {
     paddingHorizontal: 16,
