@@ -54,6 +54,97 @@ const CAT_ICONS: Record<string, string> = {
   "Snacks": "🍟"
 };
 
+function AnimatedDeliveryTrack() {
+  const travelAnim = useRef(new Animated.Value(0)).current;
+  const [iconPhase, setIconPhase] = useState<'food' | 'rider' | 'home'>('food');
+
+  useEffect(() => {
+    const duration = 3000;
+    
+    // Smooth infinite horizontal travel loop using native driver (smooth 60fps)
+    const runAnim = () => {
+      travelAnim.setValue(0);
+      setIconPhase('food');
+      
+      Animated.timing(travelAnim, {
+        toValue: 1,
+        duration: duration,
+        useNativeDriver: true,
+      }).start((result) => {
+        if (result.finished) {
+          runAnim();
+        }
+      });
+    };
+    
+    runAnim();
+
+    // Timers for phase transitions (food -> rider -> home) coordinated with animation duration
+    let t1: NodeJS.Timeout;
+    let t2: NodeJS.Timeout;
+    let t3: NodeJS.Timeout;
+    
+    const startTimers = () => {
+      t1 = setTimeout(() => setIconPhase('rider'), duration * 0.33);
+      t2 = setTimeout(() => setIconPhase('home'), duration * 0.66);
+      t3 = setTimeout(() => {
+        startTimers();
+      }, duration);
+    };
+    
+    startTimers();
+
+    return () => {
+      travelAnim.stopAnimation();
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, []);
+
+  const trackWidth = normalize(180);
+  const containerSize = normalize(26);
+  const translateX = travelAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, trackWidth - containerSize],
+  });
+
+  const getIconName = () => {
+    switch (iconPhase) {
+      case 'food':
+        return 'pizza-outline';
+      case 'rider':
+        return 'bicycle-outline';
+      case 'home':
+        return 'home-outline';
+    }
+  };
+
+  return (
+    <View style={styles.trackContainer}>
+      {/* Background Track Road */}
+      <View style={styles.trackRoad} />
+      
+      {/* Dashed Road Lanes */}
+      <View style={styles.trackLane} />
+
+      {/* Traveling Animated Icon Container */}
+      <Animated.View 
+        style={[
+          styles.travelingIcon, 
+          { 
+            transform: [
+              { translateX }
+            ] 
+          }
+        ]}
+      >
+        <Ionicons name={getIconName() as any} size={normalize(14)} color="#FF6D00" />
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function App() {
   const insets = useSafeAreaInsets();
   const [showSplash, setShowSplash] = useState(true);
@@ -997,7 +1088,7 @@ export default function App() {
               
               {/* Animated Divider & Tagline Wrapper which fades out on keyboard */}
               <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
-                <View style={styles.divider} />
+                <AnimatedDeliveryTrack />
                 
                 {/* Tagline (Splash Screen Only) */}
                 <View style={styles.taglineWrapper}>
@@ -1272,6 +1363,50 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 10,
     textAlign: 'center',
+  },
+  trackContainer: {
+    width: normalize(180),
+    height: normalize(26),
+    justifyContent: 'center',
+    marginVertical: normalize(14),
+    position: 'relative',
+    alignItems: 'flex-start',
+  },
+  trackRoad: {
+    height: 4,
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    borderRadius: 2,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
+  trackLane: {
+    height: 1,
+    backgroundColor: 'rgba(255, 107, 0, 0.3)',
+    position: 'absolute',
+    left: normalize(4),
+    right: normalize(4),
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: '#FF6D00',
+    opacity: 0.5,
+  },
+  travelingIcon: {
+    width: normalize(26),
+    height: normalize(26),
+    borderRadius: normalize(13),
+    backgroundColor: '#0D0A06',
+    borderWidth: 1,
+    borderColor: '#FF6D00',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6D00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 4,
+    position: 'absolute',
+    left: 0,
   },
   divider: {
     width: normalize(50),
