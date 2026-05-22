@@ -1448,12 +1448,57 @@ export default function App() {
         {/* Crossfading Overlays */}
         <Animated.View style={[styles.overlay, { opacity: splashOpacity, backgroundColor: 'rgba(0, 0, 0, 0.75)' }]} pointerEvents="none" />
         <Animated.View style={[styles.overlay, { opacity: authOpacity, backgroundColor: 'rgba(0, 0, 0, 0.65)' }]} pointerEvents="none" />
-
-
         <KeyboardAvoidingView 
           style={{ flex: 1, backgroundColor: 'transparent' }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
+          {/* Brand — absolutely centred on screen, slides up on auth transition */}
+          <Animated.View
+            style={[
+              styles.brandBox,
+              {
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 10,
+                transform: [
+                  { translateY: titleTranslateY },
+                  { translateY: keyboardBrandY },
+                  { scale: keyboardBrandScale },
+                ],
+              },
+            ]}
+            pointerEvents="none"
+          >
+            {/* Cinematic (Two-line) Title */}
+            <Animated.View style={{ opacity: brandCinematicOpacity, alignItems: 'center', width: '100%' }}>
+              <Text style={styles.title}>ANJANI</Text>
+              <Text style={styles.titleSecond}>RESTAURANT</Text>
+            </Animated.View>
+
+            {/* Compact (Single-line) Title */}
+            <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', opacity: brandCompactOpacity }} pointerEvents="none">
+              <Text style={styles.compactTitle}>
+                ANJANI <Text style={{ fontWeight: '300' }}>RESTAURANT</Text>
+              </Text>
+            </Animated.View>
+
+            {/* Animation + Tagline (fades out with keyboard) */}
+            <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
+              <AnimatedDeliveryTrack />
+              <View style={styles.taglineWrapper}>
+                <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
+                  Kitchen & Dispatch Operations Suite 🔥
+                </Animated.Text>
+              </View>
+            </Animated.View>
+          </Animated.View>
+
+          {/* Auth Form — scrollable, slides in from below */}
           <ScrollView 
             contentContainerStyle={[
               styles.scrollContent,
@@ -1465,45 +1510,6 @@ export default function App() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Morphing Brand Box */}
-            <Animated.View 
-              style={[
-                styles.brandBox, 
-                { 
-                  transform: [
-                    { translateY: titleTranslateY },
-                    { translateY: keyboardBrandY },
-                    { scale: keyboardBrandScale }
-                  ] 
-                }
-              ]}
-            >
-              {/* Cinematic (Two-line) Title */}
-              <Animated.View style={{ opacity: brandCinematicOpacity, alignItems: 'center', width: '100%' }}>
-                <Text style={styles.title}>ANJANI</Text>
-                <Text style={styles.titleSecond}>RESTAURANT</Text>
-              </Animated.View>
-
-              {/* Compact (Single-line) Title */}
-              <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', opacity: brandCompactOpacity }} pointerEvents="none">
-                <Text style={styles.compactTitle}>
-                  ANJANI <Text style={{ fontWeight: '300' }}>RESTAURANT</Text>
-                </Text>
-              </Animated.View>
-              
-              {/* Animated Divider & Tagline Wrapper which fades out on keyboard */}
-              <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
-                <AnimatedDeliveryTrack />
-                
-                {/* Tagline (Splash Screen Only) */}
-                <View style={styles.taglineWrapper}>
-                  <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
-                    Kitchen & Dispatch Operations Suite 🔥
-                  </Animated.Text>
-                </View>
-              </Animated.View>
-            </Animated.View>
-
             {/* Fade In & Slide Up Auth Form */}
             {!currentUser && (
               <Animated.View 
@@ -1749,9 +1755,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     paddingHorizontal: normalize(20),
-    gap: normalize(16),
+    paddingBottom: normalize(8),
   },
   brandBox: {
     alignItems: 'center',
