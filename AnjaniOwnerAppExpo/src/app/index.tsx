@@ -55,132 +55,84 @@ const CAT_ICONS: Record<string, string> = {
 };
 
 function AnimatedDeliveryTrack() {
-  const phase = useRef(new Animated.Value(0)).current;
+  const travelAnim = useRef(new Animated.Value(0)).current;
+  const [iconPhase, setIconPhase] = useState<'food' | 'rider' | 'home'>('food');
 
   useEffect(() => {
-    const HOLD   = 700;
-    const GAP    = 320;
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(phase, { toValue: 2, duration: HOLD, useNativeDriver: true }),
-        Animated.timing(phase, { toValue: 3, duration: GAP,  useNativeDriver: true }),
-        Animated.timing(phase, { toValue: 4, duration: HOLD, useNativeDriver: true }),
-        Animated.timing(phase, { toValue: 5, duration: GAP,  useNativeDriver: true }),
-        Animated.timing(phase, { toValue: 6, duration: HOLD, useNativeDriver: true }),
-        Animated.delay(500),
-        Animated.timing(phase, { toValue: 0, duration: 0, useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
+    const duration = 3200;
+
+    const runAnim = () => {
+      travelAnim.setValue(0);
+      setIconPhase('food');
+      Animated.timing(travelAnim, {
+        toValue: 1,
+        duration,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) runAnim();
+      });
+    };
+
+    runAnim();
+
+    let t1: ReturnType<typeof setTimeout>;
+    let t2: ReturnType<typeof setTimeout>;
+    let t3: ReturnType<typeof setTimeout>;
+
+    const startTimers = () => {
+      t1 = setTimeout(() => setIconPhase('rider'), duration * 0.33);
+      t2 = setTimeout(() => setIconPhase('home'),  duration * 0.66);
+      t3 = setTimeout(() => startTimers(), duration);
+    };
+    startTimers();
+
+    return () => {
+      travelAnim.stopAnimation();
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
   }, []);
 
-  // Food: active 0→2.5, fades out 2.5→3.5
-  const foodOp = phase.interpolate({
-    inputRange: [0, 0.8, 2, 2.8, 3.5, 6],
-    outputRange: [0, 1,  1, 1,   0.18, 0.18],
-    extrapolate: 'clamp',
-  });
-  const foodY = phase.interpolate({
-    inputRange: [0, 0.7, 1.4, 6],
-    outputRange: [5, 0,  0,   0],
-    extrapolate: 'clamp',
-  });
-  const foodScale = phase.interpolate({
-    inputRange: [0, 0.5, 1.1, 6],
-    outputRange: [0.75, 1.15, 1.0, 1.0],
-    extrapolate: 'clamp',
+  const trackWidth     = normalize(120);
+  const containerSize  = normalize(18);
+
+  const translateX = travelAnim.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [0, trackWidth - containerSize],
   });
 
-  // Rider: active 2.5→4.5
-  const riderOp = phase.interpolate({
-    inputRange: [0, 2.2, 3.0, 4, 4.8, 5.5, 6],
-    outputRange: [0.18, 0.18, 1, 1, 1, 0.18, 0.18],
-    extrapolate: 'clamp',
-  });
-  const riderY = phase.interpolate({
-    inputRange: [0, 2.2, 2.9, 3.6, 6],
-    outputRange: [5, 5,  0,   0,   0],
-    extrapolate: 'clamp',
-  });
-  const riderScale = phase.interpolate({
-    inputRange: [0, 2.2, 2.7, 3.3, 6],
-    outputRange: [0.75, 0.75, 1.15, 1.0, 1.0],
-    extrapolate: 'clamp',
+  // Fade in at start, hold, fade out at destination
+  const iconOpacity = travelAnim.interpolate({
+    inputRange:  [0, 0.12, 0.88, 1],
+    outputRange: [0, 1,    1,    0],
   });
 
-  // Home: active 4.5→6
-  const homeOp = phase.interpolate({
-    inputRange: [0, 4.5, 5.2, 6],
-    outputRange: [0.18, 0.18, 1, 1],
-    extrapolate: 'clamp',
-  });
-  const homeY = phase.interpolate({
-    inputRange: [0, 4.5, 5.2, 5.9, 6],
-    outputRange: [5, 5,  0,   0,   0],
-    extrapolate: 'clamp',
-  });
-  const homeScale = phase.interpolate({
-    inputRange: [0, 4.5, 5.0, 5.6, 6],
-    outputRange: [0.75, 0.75, 1.15, 1.0, 1.0],
-    extrapolate: 'clamp',
-  });
-
-  // Connector dot: food→rider
-  const dot1Op = phase.interpolate({
-    inputRange: [1.8, 2.4, 2.9, 3.5, 6],
-    outputRange: [0, 0.7, 0.7, 0, 0],
-    extrapolate: 'clamp',
-  });
-  // Connector dot: rider→home
-  const dot2Op = phase.interpolate({
-    inputRange: [3.8, 4.4, 4.9, 5.5, 6],
-    outputRange: [0, 0.7, 0.7, 0, 0],
-    extrapolate: 'clamp',
-  });
-
-  const SPACING = normalize(54);
+  const getIconName = (): 'pizza-outline' | 'bicycle-outline' | 'home-outline' => {
+    switch (iconPhase) {
+      case 'food':  return 'pizza-outline';
+      case 'rider': return 'bicycle-outline';
+      case 'home':  return 'home-outline';
+    }
+  };
 
   return (
     <View style={styles.trackContainer}>
-      {/* Hairline track */}
+      {/* Thin warm-orange track line */}
       <View style={styles.trackRoad} />
 
-      {/* Connector dots */}
-      <Animated.View style={[styles.trackDot, { left: SPACING - normalize(2), opacity: dot1Op }]} />
-      <Animated.View style={[styles.trackDot, { left: SPACING * 2 - normalize(2), opacity: dot2Op }]} />
-
-      {/* Food */}
+      {/* Gliding icon — dematerialises at both edges */}
       <Animated.View
-        style={[styles.trackIconWrap, { left: 0, opacity: foodOp,
-          transform: [{ translateY: foodY }, { scale: foodScale }] }]}
+        style={[
+          styles.travelingIcon,
+          { opacity: iconOpacity, transform: [{ translateX }] },
+        ]}
       >
-        <Ionicons name="pizza-outline" size={normalize(17)} color="#FF6D00" />
-        <Text style={styles.trackLabel}>Food</Text>
-      </Animated.View>
-
-      {/* Rider */}
-      <Animated.View
-        style={[styles.trackIconWrap, { left: SPACING, opacity: riderOp,
-          transform: [{ translateY: riderY }, { scale: riderScale }] }]}
-      >
-        <Ionicons name="bicycle-outline" size={normalize(19)} color="#FF6D00" />
-        <Text style={styles.trackLabel}>Rider</Text>
-      </Animated.View>
-
-      {/* Home */}
-      <Animated.View
-        style={[styles.trackIconWrap, { left: SPACING * 2, opacity: homeOp,
-          transform: [{ translateY: homeY }, { scale: homeScale }] }]}
-      >
-        <Ionicons name="home-outline" size={normalize(16)} color="#FF6D00" />
-        <Text style={styles.trackLabel}>Home</Text>
+        <Ionicons name={getIconName()} size={normalize(13)} color="#FF6D00" />
       </Animated.View>
     </View>
   );
 }
-
-
 
 function AnimatedDeliveryTrackOrbit() {
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -1836,51 +1788,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   trackContainer: {
-    width: normalize(160),
-    height: normalize(52),
-    marginVertical: normalize(10),
+    width: normalize(120),
+    height: normalize(20),
+    justifyContent: 'center',
+    marginVertical: normalize(16),
     position: 'relative',
-    alignSelf: 'center',
+    alignItems: 'flex-start',
   },
   trackRoad: {
+    height: 1.5,
+    backgroundColor: 'rgba(255, 107, 0, 0.18)',
+    borderRadius: 1,
     position: 'absolute',
-    left: normalize(9),
-    right: normalize(9),
-    top: normalize(13),
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-  trackIconWrap: {
-    position: 'absolute',
-    top: 0,
-    width: normalize(36),
-    alignItems: 'center',
-  },
-  trackLabel: {
-    fontSize: normalize(8),
-    color: 'rgba(255,255,255,0.45)',
-    marginTop: normalize(3),
-    letterSpacing: 0.5,
-    fontWeight: '500',
-  },
-  trackDot: {
-    position: 'absolute',
-    top: normalize(11),
-    width: normalize(5),
-    height: normalize(5),
-    borderRadius: normalize(2.5),
-    backgroundColor: '#FF6D00',
-    shadowColor: '#FF6D00',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 5,
+    left: 0,
+    right: 0,
   },
   travelingIcon: {
-    position: 'absolute',
     width: normalize(18),
     height: normalize(18),
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'absolute',
     left: 0,
   },
   orbitalRing: {
