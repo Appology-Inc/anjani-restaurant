@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anjani Kitchen Owner Dashboard</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  </head>
+  <body>
+    <div id="app">
+      
+      <header class="navbar">
+        <div class="brand">
+          <i class="ri-fire-fill brand-icon"></i>
+          <div>
+            <h1 class="brand-title">Anjani Kitchen <span class="badge">Web Dashboard</span></h1>
+            <p class="brand-subtitle">Kitchen & Dispatch Operations Suite</p>
+          </div>
+        </div>
+        <div class="nav-right">
+          <button id="logout-btn" class="btn-secondary" style="display: none; padding: 6px 12px; font-size: 0.85rem;"><i class="ri-logout-box-line"></i> Logout</button>
+          <div class="live-clock" id="live-clock">--:--:--</div>
+          <div class="connection-status connected" id="connection-status">
+            <span class="dot"></span>
+            <span class="text">Firebase Live</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="analytics-strip">
+        <div class="metric-card">
+          <div class="metric-icon bg-orange"><i class="ri-money-rupee-circle-line"></i></div>
+          <div class="metric-info">
+            <p class="metric-label">Total Revenue</p>
+            <h3 class="metric-value" id="metric-revenue">₹0</h3>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon bg-blue"><i class="ri-restaurant-line"></i></div>
+          <div class="metric-info">
+            <p class="metric-label">Active Orders</p>
+            <h3 class="metric-value" id="metric-active-orders">0</h3>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon bg-green"><i class="ri-e-bike-2-line"></i></div>
+          <div class="metric-info">
+            <p class="metric-label">Live Deliveries</p>
+            <h3 class="metric-value" id="metric-live-deliveries">0</h3>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon bg-purple"><i class="ri-menu-line"></i></div>
+          <div class="metric-info">
+            <p class="metric-label">Menu Items</p>
+            <h3 class="metric-value" id="metric-menu-items">0</h3>
+          </div>
+        </div>
+      </section>
+
+      <div class="tab-container">
+        <button class="tab-btn active" data-tab="operations">
+          <i class="ri-dashboard-3-line"></i> Operations Board
+        </button>
+        <button class="tab-btn" data-tab="menu">
+          <i class="ri-book-open-line"></i> Menu Catalog
+        </button>
+      </div>
+
+      <main class="content-area">
+        <div id="tab-operations" class="tab-content active">
+          <div class="kanban-board">
+            
+            <div class="kanban-column">
+              <div class="kanban-header">
+                <h2>Incoming Requests</h2>
+                <span class="kanban-count" id="count-incoming">0</span>
+              </div>
+              <div class="kanban-list" id="list-incoming"></div>
+            </div>
+
+            <div class="kanban-column">
+              <div class="kanban-header">
+                <h2>Preparation Queue</h2>
+                <span class="kanban-count" id="count-preparing">0</span>
+              </div>
+              <div class="kanban-list" id="list-preparing"></div>
+            </div>
+
+            <div class="kanban-column">
+              <div class="kanban-header">
+                <h2>Out for Delivery</h2>
+                <span class="kanban-count" id="count-delivering">0</span>
+              </div>
+              <div class="kanban-list" id="list-delivering"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="tab-menu" class="tab-content">
+          <div class="menu-controls">
+            <div class="search-box">
+              <i class="ri-search-line"></i>
+              <input type="text" id="menu-search" placeholder="Search dish by name..." />
+            </div>
+          </div>
+          <div class="category-filters" id="category-filters">
+            <!-- Category buttons injected here -->
+          </div>
+          <div class="menu-grid" id="menu-grid"></div>
+        </div>
+
+      </main>
+
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Edit Dish Details</h2>
+          <button id="close-modal" class="icon-btn"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-id" />
+          
+          <div class="form-group">
+            <label>Dish Name</label>
+            <input type="text" id="edit-name" />
+          </div>
+          
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="edit-description" rows="3"></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label>Price (₹)</label>
+            <input type="number" id="edit-price" />
+          </div>
+          
+          <div class="form-group toggle-group">
+            <div>
+              <label>Available Today</label>
+              <span class="help-text">Controls whether customers can order this dish</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="edit-available" />
+              <span class="slider round"></span>
+            </label>
+          </div>
+          
+          <button id="delete-dish-btn" class="btn-delete">
+            <i class="ri-delete-bin-line"></i> Delete Dish Completely
+          </button>
+        </div>
+        
+        <div class="modal-footer">
+          <button id="cancel-edit-btn" class="btn-secondary">Cancel</button>
+          <button id="save-edit-btn" class="btn-primary">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+      <div class="modal-card modal-sm">
+        <div class="modal-header">
+          <h2>Confirm Deletion</h2>
+        </div>
+        <div class="modal-body">
+          <p id="confirm-text">Are you sure you want to permanently delete this dish?</p>
+          <p class="warning-text" style="color:var(--danger); font-size:0.85rem; margin-top:8px;">This action cannot be undone and will remove the dish from all apps.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-confirm-btn" class="btn-secondary">Cancel</button>
+          <button id="confirm-delete-btn" class="btn-danger">Delete Forever</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-overlay" class="modal-overlay">
+      <div class="modal-card modal-sm">
+        <div class="modal-header">
+          <h2><i class="ri-fire-fill brand-icon"></i> Owner Login</h2>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="login-email" placeholder="owner@anjani.com" />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="login-password" />
+          </div>
+          <p id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 1rem; display: none;"></p>
+          <button id="login-btn" class="btn-primary" style="width: 100%; padding: 12px;">Sign In to Dashboard</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

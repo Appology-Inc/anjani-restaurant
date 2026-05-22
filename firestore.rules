@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isOwner() {
+      return isAuthenticated() && getUserRole() == 'owner';
+    }
+    
+    function isRider() {
+      return isAuthenticated() && getUserRole() == 'rider';
+    }
+    
+    function isCustomer() {
+      // If no explicit role, assume anonymous customer, or explicit customer role
+      return isAuthenticated() && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || getUserRole() == 'customer');
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      // Users can read/write their own profile. Owners can read/write all profiles.
+      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isOwner());
+    }
+
+    // --- Menu Collection ---
+    match /menu/{itemId} {
+      // Anyone can read the menu
+      allow read: if true;
+      // Only owners can modify the menu
+      allow write: if isOwner();
+    }
+
+    // --- Orders Collection ---
+    match /orders/{orderId} {
+      // Owners and Riders can see all orders. Customers can only see their own.
+      allow read: if isOwner() || isRider() || (isAuthenticated() && resource.data.customerUid == request.auth.uid);
+      
+      // Customers can create orders.
+      allow create: if isAuthenticated() && request.resource.data.customerUid == request.auth.uid;
+      
+      // Update logic
+      allow update: if isOwner() || 
+        (isRider() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'riderLat', 'riderLng']));
+        
+      // Only owners can delete orders
+      allow delete: if isOwner();
+    }
+    
+    // Catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

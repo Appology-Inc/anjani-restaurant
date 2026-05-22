@@ -1,0 +1,37 @@
+# Dependencies
+**/node_modules/
+**/bower_components/
+
+# Expo / React Native
+**/.expo/
+**/android/build/
+**/android/.gradle/
+**/ios/build/
+**/ios/Pods/
+**/.expo-shared/
+**/web-build/
+
+# Production / Build
+**/dist/
+**/build/
+**/.next/
+**/out/
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Backups
+*.zip
+*.tar.gz
+*.tgz
