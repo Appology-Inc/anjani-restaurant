@@ -58,127 +58,128 @@ function AnimatedDeliveryTrack() {
   const phase = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const GLOW  = 650;  // ms each icon stays lit
-    const TRAVEL = 650; // ms dot travels between icons
+    const HOLD   = 700;
+    const GAP    = 320;
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(phase, { toValue: 1, duration: GLOW,   useNativeDriver: true }),
-        Animated.timing(phase, { toValue: 2, duration: TRAVEL, useNativeDriver: true }),
-        Animated.timing(phase, { toValue: 3, duration: GLOW,   useNativeDriver: true }),
-        Animated.timing(phase, { toValue: 4, duration: TRAVEL, useNativeDriver: true }),
-        Animated.timing(phase, { toValue: 5, duration: GLOW,   useNativeDriver: true }),
-        Animated.delay(400),
-        Animated.timing(phase, { toValue: 0, duration: 0,      useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 2, duration: HOLD, useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 3, duration: GAP,  useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 4, duration: HOLD, useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 5, duration: GAP,  useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 6, duration: HOLD, useNativeDriver: true }),
+        Animated.delay(500),
+        Animated.timing(phase, { toValue: 0, duration: 0, useNativeDriver: true }),
       ])
     );
     anim.start();
     return () => anim.stop();
   }, []);
 
-  const TRACK_W = normalize(160);
-  const ICON_W  = normalize(16);
-  const pos0 = 0;
-  const pos1 = (TRACK_W - ICON_W) / 2;
-  const pos2 = TRACK_W - ICON_W;
-
-  // Food icon — glows at phase 0→1
-  const foodOpacity = phase.interpolate({
-    inputRange: [0, 0.15, 0.85, 1.3, 5],
-    outputRange: [0.22, 1, 1, 0.22, 0.22],
+  // Food: active 0→2.5, fades out 2.5→3.5
+  const foodOp = phase.interpolate({
+    inputRange: [0, 0.8, 2, 2.8, 3.5, 6],
+    outputRange: [0, 1,  1, 1,   0.18, 0.18],
+    extrapolate: 'clamp',
+  });
+  const foodY = phase.interpolate({
+    inputRange: [0, 0.7, 1.4, 6],
+    outputRange: [5, 0,  0,   0],
     extrapolate: 'clamp',
   });
   const foodScale = phase.interpolate({
-    inputRange: [0, 0.12, 0.88, 1.3, 5],
-    outputRange: [0.82, 1.2, 1.2, 0.82, 0.82],
+    inputRange: [0, 0.5, 1.1, 6],
+    outputRange: [0.75, 1.15, 1.0, 1.0],
     extrapolate: 'clamp',
   });
 
-  // Rider icon — glows at phase 2→3
-  const riderOpacity = phase.interpolate({
-    inputRange: [1.7, 2.15, 2.85, 3.3, 5],
-    outputRange: [0.22, 1, 1, 0.22, 0.22],
+  // Rider: active 2.5→4.5
+  const riderOp = phase.interpolate({
+    inputRange: [0, 2.2, 3.0, 4, 4.8, 5.5, 6],
+    outputRange: [0.18, 0.18, 1, 1, 1, 0.18, 0.18],
+    extrapolate: 'clamp',
+  });
+  const riderY = phase.interpolate({
+    inputRange: [0, 2.2, 2.9, 3.6, 6],
+    outputRange: [5, 5,  0,   0,   0],
     extrapolate: 'clamp',
   });
   const riderScale = phase.interpolate({
-    inputRange: [1.7, 2.12, 2.88, 3.3, 5],
-    outputRange: [0.82, 1.2, 1.2, 0.82, 0.82],
+    inputRange: [0, 2.2, 2.7, 3.3, 6],
+    outputRange: [0.75, 0.75, 1.15, 1.0, 1.0],
     extrapolate: 'clamp',
   });
 
-  // Home icon — glows at phase 4→5
-  const homeOpacity = phase.interpolate({
-    inputRange: [3.7, 4.15, 4.85, 5],
-    outputRange: [0.22, 1, 1, 0.22],
+  // Home: active 4.5→6
+  const homeOp = phase.interpolate({
+    inputRange: [0, 4.5, 5.2, 6],
+    outputRange: [0.18, 0.18, 1, 1],
+    extrapolate: 'clamp',
+  });
+  const homeY = phase.interpolate({
+    inputRange: [0, 4.5, 5.2, 5.9, 6],
+    outputRange: [5, 5,  0,   0,   0],
     extrapolate: 'clamp',
   });
   const homeScale = phase.interpolate({
-    inputRange: [3.7, 4.12, 4.88, 5],
-    outputRange: [0.82, 1.2, 1.2, 0.82],
+    inputRange: [0, 4.5, 5.0, 5.6, 6],
+    outputRange: [0.75, 0.75, 1.15, 1.0, 1.0],
     extrapolate: 'clamp',
   });
 
-  // Dot 1: food → rider (phase 1→2)
-  const dot1X = phase.interpolate({
-    inputRange: [1, 2, 5],
-    outputRange: [pos0 + ICON_W / 2, pos1 + ICON_W / 2, pos1 + ICON_W / 2],
+  // Connector dot: food→rider
+  const dot1Op = phase.interpolate({
+    inputRange: [1.8, 2.4, 2.9, 3.5, 6],
+    outputRange: [0, 0.7, 0.7, 0, 0],
     extrapolate: 'clamp',
   });
-  const dot1Opacity = phase.interpolate({
-    inputRange: [0.9, 1.1, 1.85, 2.15, 5],
-    outputRange: [0, 1, 1, 0, 0],
+  // Connector dot: rider→home
+  const dot2Op = phase.interpolate({
+    inputRange: [3.8, 4.4, 4.9, 5.5, 6],
+    outputRange: [0, 0.7, 0.7, 0, 0],
     extrapolate: 'clamp',
   });
 
-  // Dot 2: rider → home (phase 3→4)
-  const dot2X = phase.interpolate({
-    inputRange: [3, 4, 5],
-    outputRange: [pos1 + ICON_W / 2, pos2 + ICON_W / 2, pos2 + ICON_W / 2],
-    extrapolate: 'clamp',
-  });
-  const dot2Opacity = phase.interpolate({
-    inputRange: [2.9, 3.1, 3.85, 4.15, 5],
-    outputRange: [0, 1, 1, 0, 0],
-    extrapolate: 'clamp',
-  });
+  const SPACING = normalize(54);
 
   return (
     <View style={styles.trackContainer}>
-      {/* Hairline connector */}
+      {/* Hairline track */}
       <View style={styles.trackRoad} />
+
+      {/* Connector dots */}
+      <Animated.View style={[styles.trackDot, { left: SPACING - normalize(2), opacity: dot1Op }]} />
+      <Animated.View style={[styles.trackDot, { left: SPACING * 2 - normalize(2), opacity: dot2Op }]} />
 
       {/* Food */}
       <Animated.View
-        style={[styles.trackIconWrap, { left: pos0, opacity: foodOpacity, transform: [{ scale: foodScale }] }]}
+        style={[styles.trackIconWrap, { left: 0, opacity: foodOp,
+          transform: [{ translateY: foodY }, { scale: foodScale }] }]}
       >
-        <Ionicons name="pizza-outline" size={normalize(14)} color="#FF6D00" />
+        <Ionicons name="pizza-outline" size={normalize(17)} color="#FF6D00" />
+        <Text style={styles.trackLabel}>Food</Text>
       </Animated.View>
 
       {/* Rider */}
       <Animated.View
-        style={[styles.trackIconWrap, { left: pos1, opacity: riderOpacity, transform: [{ scale: riderScale }] }]}
+        style={[styles.trackIconWrap, { left: SPACING, opacity: riderOp,
+          transform: [{ translateY: riderY }, { scale: riderScale }] }]}
       >
-        <Ionicons name="bicycle-outline" size={normalize(15)} color="#FF6D00" />
+        <Ionicons name="bicycle-outline" size={normalize(19)} color="#FF6D00" />
+        <Text style={styles.trackLabel}>Rider</Text>
       </Animated.View>
 
       {/* Home */}
       <Animated.View
-        style={[styles.trackIconWrap, { left: pos2, opacity: homeOpacity, transform: [{ scale: homeScale }] }]}
+        style={[styles.trackIconWrap, { left: SPACING * 2, opacity: homeOp,
+          transform: [{ translateY: homeY }, { scale: homeScale }] }]}
       >
-        <Ionicons name="home-outline" size={normalize(13)} color="#FF6D00" />
+        <Ionicons name="home-outline" size={normalize(16)} color="#FF6D00" />
+        <Text style={styles.trackLabel}>Home</Text>
       </Animated.View>
-
-      {/* Traveling dot: food → rider */}
-      <Animated.View
-        style={[styles.trackDot, { opacity: dot1Opacity, transform: [{ translateX: dot1X }] }]}
-      />
-
-      {/* Traveling dot: rider → home */}
-      <Animated.View
-        style={[styles.trackDot, { opacity: dot2Opacity, transform: [{ translateX: dot2X }] }]}
-      />
     </View>
   );
 }
+
 
 
 function AnimatedDeliveryTrackOrbit() {
@@ -1836,34 +1837,35 @@ const styles = StyleSheet.create({
   },
   trackContainer: {
     width: normalize(160),
-    height: normalize(30),
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    marginVertical: normalize(14),
+    height: normalize(52),
+    marginVertical: normalize(10),
     position: 'relative',
+    alignSelf: 'center',
   },
   trackRoad: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '50%',
+    left: normalize(9),
+    right: normalize(9),
+    top: normalize(13),
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 1,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   trackIconWrap: {
     position: 'absolute',
     top: 0,
-    bottom: 0,
-    width: normalize(16),
+    width: normalize(36),
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  trackLabel: {
+    fontSize: normalize(8),
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: normalize(3),
+    letterSpacing: 0.5,
+    fontWeight: '500',
   },
   trackDot: {
     position: 'absolute',
-    top: '50%',
-    marginTop: -normalize(2.5),
-    marginLeft: -normalize(2.5),
+    top: normalize(11),
     width: normalize(5),
     height: normalize(5),
     borderRadius: normalize(2.5),
