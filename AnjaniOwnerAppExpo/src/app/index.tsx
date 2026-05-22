@@ -55,6 +55,90 @@ const CAT_ICONS: Record<string, string> = {
 };
 
 function AnimatedDeliveryTrack() {
+  const travelAnim = useRef(new Animated.Value(0)).current;
+  const [iconPhase, setIconPhase] = useState<'food' | 'rider' | 'home'>('food');
+
+  useEffect(() => {
+    const duration = 3200; // Premium slow glide speed
+    
+    const runAnim = () => {
+      travelAnim.setValue(0);
+      setIconPhase('food');
+      
+      Animated.timing(travelAnim, {
+        toValue: 1,
+        duration: duration,
+        useNativeDriver: true,
+      }).start((result) => {
+        if (result.finished) {
+          runAnim();
+        }
+      });
+    };
+    
+    runAnim();
+
+    let t1: any;
+    let t2: any;
+    let t3: any;
+    
+    const startTimers = () => {
+      t1 = setTimeout(() => setIconPhase('rider'), duration * 0.33);
+      t2 = setTimeout(() => setIconPhase('home'), duration * 0.66);
+      t3 = setTimeout(() => {
+        startTimers();
+      }, duration);
+    };
+    
+    startTimers();
+
+    return () => {
+      travelAnim.stopAnimation();
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, []);
+
+  const trackWidth = normalize(120);
+  const containerSize = normalize(18);
+  const translateX = travelAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, trackWidth - containerSize],
+  });
+
+  const iconOpacity = travelAnim.interpolate({
+    inputRange: [0, 0.15, 0.85, 1],
+    outputRange: [0, 1, 1, 0],
+  });
+
+  const getIconName = () => {
+    switch (iconPhase) {
+      case 'food': return 'pizza-outline';
+      case 'rider': return 'bicycle-outline';
+      case 'home': return 'home-outline';
+    }
+  };
+
+  return (
+    <View style={styles.trackContainer}>
+      <View style={styles.trackRoad} />
+      <Animated.View 
+        style={[
+          styles.travelingIcon, 
+          { 
+            opacity: iconOpacity,
+            transform: [{ translateX }] 
+          }
+        ]}
+      >
+        <Ionicons name={getIconName()} size={normalize(13)} color="#FF6D00" />
+      </Animated.View>
+    </View>
+  );
+}
+
+function AnimatedDeliveryTrackOrbit() {
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -1750,6 +1834,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: normalize(12),
     position: 'relative',
+  },
+  trackRoad: {
+    position: 'absolute',
+    width: normalize(120),
+    height: 1.5,
+    backgroundColor: 'rgba(255, 107, 0, 0.2)',
+    borderRadius: 1,
+  },
+  travelingIcon: {
+    position: 'absolute',
+    width: normalize(18),
+    height: normalize(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+    left: 0,
   },
   orbitalRing: {
     width: normalize(100),
