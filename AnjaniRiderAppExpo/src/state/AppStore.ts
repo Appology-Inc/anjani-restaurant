@@ -132,6 +132,10 @@ interface AppState {
   // Chat System
   chatMessages: { [orderId: string]: ChatMessage[] };
   sendChatMessage: (orderId: string, senderRole: 'customer' | 'rider', senderName: string, text: string) => void;
+
+  // Restaurant Status
+  isRestaurantOpen: boolean;
+  restaurantCloseReason: string | null;
 }
 
 // API Network Lookups with emulator failovers
@@ -266,12 +270,31 @@ export const useAppStore = create<AppState>((set, get) => {
       }, (error: any) => {
         console.warn('Firestore menu sync deferred/unauthorized: ', error.message);
       });
+
+      // Real-time Firestore sync for restaurant status
+      const { doc } = require('firebase/firestore');
+      const statusRef = doc(db, 'settings', 'status');
+      onSnapshot(statusRef, (snapshot: any) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          set({
+            isRestaurantOpen: data.isOpen !== false,
+            restaurantCloseReason: data.reason || null
+          });
+        }
+      }, (error: any) => {
+        console.warn('Firestore status sync deferred/unauthorized: ', error.message);
+      });
+
     } catch (e) {
       console.log('Error initializing real-time Firestore listener:', e);
     }
   }
 
   return {
+    isRestaurantOpen: true,
+    restaurantCloseReason: null,
+
     currentUser: null,
     login: async (profile) => {
       // Backwards-compatibility safety

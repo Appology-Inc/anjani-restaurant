@@ -68,7 +68,9 @@ export default function RiderApp() {
     acceptDeliveryTask, 
     updateRiderSimulatedPosition, 
     chatMessages, 
-    sendChatMessage 
+    sendChatMessage,
+    isRestaurantOpen,
+    restaurantCloseReason
   } = useAppStore();
 
   useEffect(() => {
@@ -700,6 +702,15 @@ export default function RiderApp() {
     <View style={[ss.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={C.dark} />
 
+      {!isRestaurantOpen && (
+        <View style={ss.closedBanner}>
+          <Ionicons name="warning" size={16} color={C.white} />
+          <Text style={ss.closedBannerText}>
+            Restaurant Closed: {restaurantCloseReason || 'No new orders will be assigned.'}
+          </Text>
+        </View>
+      )}
+
       {/* Header */}
       <View style={ss.header}>
         <View style={ss.headerBrand}>
@@ -1108,7 +1119,21 @@ const styles = StyleSheet.create({
 
 const ss = StyleSheet.create({
   // Main
-  container: { flex: 1, backgroundColor: '#18120A' },
+  container: { flex: 1, backgroundColor: C.surface },
+  closedBanner: {
+    backgroundColor: C.red,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  closedBannerText: {
+    color: C.white,
+    fontSize: normalize(11),
+    fontWeight: '800',
+  },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#0D0A06', borderBottomWidth: 1, borderBottomColor: 'rgba(255,107,0,0.18)' },
   headerBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,107,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,0,0.3)', alignItems: 'center', justifyContent: 'center' },
