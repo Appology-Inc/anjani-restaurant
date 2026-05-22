@@ -630,9 +630,10 @@ export default function App() {
     inputRange: [0, 0.6],
     outputRange: [1, 0],
   });
-  const keyboardFormY = keyboardAnim.interpolate({
+  // Shift both the brand and the form up as a single unit so the bottom button is visible
+  const keyboardGroupY = keyboardAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -normalize(165)],
+    outputRange: [0, -normalize(70)],
   });
 
   const brandCinematicOpacity = keyboardAnim.interpolate({
@@ -1474,6 +1475,7 @@ export default function App() {
                   zIndex: 10,
                   transform: [
                     { translateY: titleTranslateY },
+                    { translateY: keyboardGroupY },
                     { scale: keyboardBrandScale }
                   ] 
                 }
@@ -1514,7 +1516,8 @@ export default function App() {
                     opacity: authOpacity, 
                     transform: [
                       { translateY: formTranslateY },
-                      { translateY: formKeyboardY }
+                      { translateY: formKeyboardY },
+                      { translateY: keyboardGroupY }
                     ] 
                   }
                 ]}
