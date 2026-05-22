@@ -538,6 +538,53 @@ function AnimatedDeliveryTrackHearth() {
   );
 }
 
+const AnimatedRestaurantToggle = ({ isOpen, onPress }: { isOpen: boolean; onPress: () => void }) => {
+  const anim = useRef(new Animated.Value(isOpen ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: isOpen ? 1 : 0,
+      useNativeDriver: false,
+      friction: 6,
+      tension: 40,
+    }).start();
+  }, [isOpen]);
+
+  const backgroundColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(244, 67, 54, 0.15)', 'rgba(76, 175, 80, 0.15)'],
+  });
+
+  const borderColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(244, 67, 54, 0.3)', 'rgba(76, 175, 80, 0.3)'],
+  });
+
+  const thumbTranslateX = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [2, 44],
+  });
+
+  const thumbColor = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#F44336', '#4CAF50'],
+  });
+
+  return (
+    <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
+      <Animated.View style={[styles.creativeToggleContainer, { backgroundColor, borderColor }]}>
+        <View style={styles.creativeToggleTextContainer}>
+          <Text style={[styles.creativeToggleText, { color: '#F44336', opacity: isOpen ? 0.3 : 1 }]}>OFF</Text>
+          <Text style={[styles.creativeToggleText, { color: '#4CAF50', opacity: isOpen ? 1 : 0.3 }]}>LIVE</Text>
+        </View>
+        <Animated.View style={[styles.creativeToggleThumb, { transform: [{ translateX: thumbTranslateX }], backgroundColor: thumbColor }]}>
+          <Ionicons name={isOpen ? "storefront" : "lock-closed"} size={12} color="#FFF" />
+        </Animated.View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
 export default function App() {
   const insets = useSafeAreaInsets();
   const [showSplash, setShowSplash] = useState(true);
@@ -989,14 +1036,8 @@ export default function App() {
               <Text style={styles.dashboardSubtitle}>Admin & Operations Panel</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <TouchableOpacity 
-                style={[
-                  styles.statusToggleBtn, 
-                  { 
-                    backgroundColor: isRestaurantOpen ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)',
-                    borderColor: isRestaurantOpen ? '#4CAF50' : '#F44336' 
-                  }
-                ]}
+              <AnimatedRestaurantToggle 
+                isOpen={isRestaurantOpen}
                 onPress={() => {
                   if (isRestaurantOpen) {
                     setShowRestaurantCloseModal(true);
@@ -1004,12 +1045,7 @@ export default function App() {
                     toggleRestaurantStatus(true);
                   }
                 }}
-              >
-                <View style={[styles.statusIndicator, { backgroundColor: isRestaurantOpen ? '#4CAF50' : '#F44336' }]} />
-                <Text style={[styles.statusToggleText, { color: isRestaurantOpen ? '#4CAF50' : '#F44336' }]}>
-                  {isRestaurantOpen ? 'OPEN' : 'CLOSED'}
-                </Text>
-              </TouchableOpacity>
+              />
               {!isRestaurantOpen && restaurantCloseReason && (
                 <Text style={{ fontSize: normalize(9), color: '#F44336', marginTop: 4, maxWidth: normalize(120), textAlign: 'right', fontWeight: '500' }}>
                   {restaurantCloseReason}
@@ -1706,15 +1742,8 @@ export default function App() {
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <TouchableOpacity 
-            style={[
-              styles.statusToggleBtn, 
-              { 
-                backgroundColor: isRestaurantOpen ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)',
-                borderColor: isRestaurantOpen ? '#4CAF50' : '#F44336',
-                marginRight: 6
-              }
-            ]}
+          <AnimatedRestaurantToggle 
+            isOpen={isRestaurantOpen}
             onPress={() => {
               if (isRestaurantOpen) {
                 setShowRestaurantCloseModal(true);
@@ -1722,12 +1751,7 @@ export default function App() {
                 toggleRestaurantStatus(true);
               }
             }}
-          >
-            <View style={[styles.statusIndicator, { backgroundColor: isRestaurantOpen ? '#4CAF50' : '#F44336' }]} />
-            <Text style={[styles.statusToggleText, { color: isRestaurantOpen ? '#4CAF50' : '#F44336' }]}>
-              {isRestaurantOpen ? 'OPEN' : 'CLOSED'}
-            </Text>
-          </TouchableOpacity>
+          />
           <TouchableOpacity 
             style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', alignItems: 'center', justifyContent: 'center' }} 
             onPress={() => {
@@ -2840,5 +2864,38 @@ const styles = StyleSheet.create({
     color: '#F5ECD7',
     fontSize: 14,
     marginLeft: 12,
+  },
+  creativeToggleContainer: {
+    width: 74,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  creativeToggleTextContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    position: 'absolute',
+    width: '100%',
+  },
+  creativeToggleText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  creativeToggleThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 5,
   },
 });
