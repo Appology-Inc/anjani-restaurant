@@ -1493,7 +1493,7 @@ export default function App() {
                 {/* Tagline (Splash Screen Only) */}
                 <View style={styles.taglineWrapper}>
                   <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
-                    Kitchen & Dispatch Operations Suite 🔥
+                    Kitchen & Dispatch Operations Suite
                   </Animated.Text>
                 </View>
               </Animated.View>
