@@ -55,99 +55,84 @@ const CAT_ICONS: Record<string, string> = {
 };
 
 function AnimatedDeliveryTrack() {
-  const travelAnim = useRef(new Animated.Value(0)).current;
+  const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(travelAnim, {
-        toValue: 1,
-        duration: 3200,
-        useNativeDriver: true,
-      })
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(progress, { toValue: 1, duration: 3600, useNativeDriver: true }),
+        Animated.delay(400),
+        Animated.timing(progress, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ])
     );
-    animation.start();
-
-    return () => animation.stop();
+    anim.start();
+    return () => anim.stop();
   }, []);
 
-  const trackWidth = normalize(120);
-  const containerSize = normalize(18);
-  const maxTravel = trackWidth - containerSize;
+  const TRACK_W = normalize(160);
+  const DOT = normalize(6);
 
-  // Station highlights: all icons always visible, muted dim white, glow on active
-  const foodStationOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.25, 0.75, 1],
-    outputRange: [0.85, 0.25, 0.25, 0.85],
-  });
-  const riderStationOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0.25, 0.25, 0.85, 0.25, 0.25],
-  });
-  const homeStationOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.25, 0.75, 1],
-    outputRange: [0.25, 0.25, 0.25, 0.85],
-  });
-
-  // Glider horizontal movement
-  const translateX = travelAnim.interpolate({
+  // Dot slides from left=0 to right=TRACK_W-DOT
+  const dotX = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, maxTravel],
+    outputRange: [0, TRACK_W - DOT],
   });
 
-  // Active Food Glider (first half)
-  const activeFoodOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.08, 0.42, 0.5, 1],
-    outputRange: [0, 1, 1, 0, 0],
+  // The filled (active) portion of the track grows with progress
+  const fillScale = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
   });
-
-  // Active Rider Glider (second half)
-  const activeRiderOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.5, 0.58, 0.92, 1],
-    outputRange: [0, 0, 1, 1, 0],
-  });
-
 
   return (
     <View style={styles.trackContainer}>
-      <View style={styles.trackRoad} />
-      
-      {/* 1. Muted Station Icons — always visible, dim, blend with dark theme */}
-      <Animated.View style={[styles.travelingIcon, { left: 0, opacity: foodStationOpacity }]}>
-        <Ionicons name="pizza-outline" size={normalize(13)} color="rgba(255,255,255,0.4)" />
-      </Animated.View>
-      
-      <Animated.View style={[styles.travelingIcon, { left: maxTravel / 2, opacity: riderStationOpacity }]}>
-        <Ionicons name="bicycle-outline" size={normalize(13)} color="rgba(255,255,255,0.4)" />
-      </Animated.View>
-      
-      <Animated.View style={[styles.travelingIcon, { left: maxTravel, opacity: homeStationOpacity }]}>
-        <Ionicons name="home-outline" size={normalize(13)} color="rgba(255,255,255,0.4)" />
-      </Animated.View>
+      {/* Empty track line */}
+      <View style={[styles.trackRoad]} />
 
-      {/* 2. Active Moving Gliders — bright warm orange on the move */}
-      <Animated.View 
+      {/* Filled (progress) track — grows from left */}
+      <Animated.View
         style={[
-          styles.travelingIcon, 
-          { 
-            opacity: activeFoodOpacity,
-            transform: [{ translateX }] 
-          }
+          styles.trackFill,
+          {
+            transformOrigin: 'left',
+            transform: [{ scaleX: fillScale }],
+          },
         ]}
-      >
-        <Ionicons name="pizza-outline" size={normalize(13)} color="#FF6D00" />
-      </Animated.View>
+      />
 
-      <Animated.View 
+      {/* 3 Stop circles at fixed positions */}
+      {[0, 0.5, 1].map((pos, i) => {
+        const stopLeft = pos * (TRACK_W - normalize(8));
+        const stopOpacity = progress.interpolate({
+          inputRange: [Math.max(0, pos - 0.05), pos, Math.min(1, pos + 0.05)],
+          outputRange: [0.3, 1, 0.3],
+          extrapolate: 'clamp',
+        });
+        const icons = ['pizza-outline', 'bicycle-outline', 'home-outline'] as const;
+        return (
+          <View
+            key={i}
+            style={[
+              styles.trackStop,
+              { left: stopLeft },
+            ]}
+          >
+            <Ionicons
+              name={icons[i]}
+              size={normalize(10)}
+              color="rgba(255,255,255,0.45)"
+            />
+          </View>
+        );
+      })}
+
+      {/* Moving bright dot */}
+      <Animated.View
         style={[
-          styles.travelingIcon, 
-          { 
-            opacity: activeRiderOpacity,
-            transform: [{ translateX }] 
-          }
+          styles.trackDot,
+          { transform: [{ translateX: dotX }] },
         ]}
-      >
-        <Ionicons name="bicycle-outline" size={normalize(13)} color="#FF6D00" />
-      </Animated.View>
+      />
     </View>
   );
 }
@@ -576,7 +561,7 @@ export default function App() {
   const imageTranslateX = useRef(new Animated.Value(0)).current;
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const authOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(SCREEN_H * 0.24)).current;
+  const titleTranslateY = useRef(new Animated.Value(0)).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
   const keyboardAnim = useRef(new Animated.Value(0)).current;
   const emailGlow = useRef(new Animated.Value(0)).current;
@@ -1476,8 +1461,8 @@ export default function App() {
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingTop: Math.max(insets.top, 20),
-                paddingBottom: Math.max(insets.bottom, 20)
+                paddingTop: Math.max(insets.top, normalize(20)),
+                paddingBottom: Math.max(insets.bottom, normalize(20)),
               }
             ]}
             showsVerticalScrollIndicator={false}
@@ -1767,10 +1752,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'flex-start',
-    paddingTop: normalize(70),
-    paddingHorizontal: normalize(20),
-    gap: normalize(20),
+    justifyContent: 'center',
+    paddingHorizontal: normalize(24),
+    gap: normalize(32),
   },
   brandBox: {
     alignItems: 'center',
@@ -1807,19 +1791,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   trackContainer: {
-    width: normalize(140),
-    height: normalize(26),
+    width: normalize(160),
+    height: normalize(28),
     justifyContent: 'center',
     alignItems: 'flex-start',
-    marginVertical: normalize(10),
+    marginVertical: normalize(14),
     position: 'relative',
   },
   trackRoad: {
     position: 'absolute',
-    width: normalize(140),
+    left: 0,
+    right: 0,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderRadius: 1,
+  },
+  trackFill: {
+    position: 'absolute',
+    left: 0,
+    width: normalize(160),
+    height: 1,
+    backgroundColor: '#FF6D00',
+    borderRadius: 1,
+    opacity: 0.55,
+  },
+  trackStop: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: normalize(16),
+    marginLeft: -normalize(4),
+  },
+  trackDot: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -normalize(3),
+    width: normalize(6),
+    height: normalize(6),
+    borderRadius: normalize(3),
+    backgroundColor: '#FF6D00',
+    shadowColor: '#FF6D00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
   },
   travelingIcon: {
     position: 'absolute',
