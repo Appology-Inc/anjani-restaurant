@@ -1720,8 +1720,8 @@ export default function App() {
             <Text style={{ fontSize: 11, color: '#9A8A72' }}>Owner Operations Suite</Text>
           </View>
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+          <View style={{ alignItems: 'center' }}>
             <AnimatedRestaurantToggle 
               isOpen={isRestaurantOpen}
               onPress={() => {
@@ -1732,9 +1732,32 @@ export default function App() {
                 }
               }}
             />
-            <TouchableOpacity 
-              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', alignItems: 'center', justifyContent: 'center' }} 
-              onPress={() => {
+            {isRestaurantOpen ? (
+              <Animated.Text style={{ 
+                opacity: Animated.add(0.4, Animated.multiply(brandBreathe, 0.6)), 
+                color: '#4CAF50', 
+                fontSize: normalize(8), 
+                fontWeight: '700', 
+                marginTop: 4 
+              }}>
+                Accepting Orders
+              </Animated.Text>
+            ) : restaurantCloseReason ? (
+              <Text style={{ 
+                fontSize: normalize(8), 
+                color: '#F44336', 
+                marginTop: 4, 
+                maxWidth: normalize(100), 
+                textAlign: 'center', 
+                fontWeight: '600' 
+              }}>
+                {restaurantCloseReason}
+              </Text>
+            ) : null}
+          </View>
+          <TouchableOpacity 
+            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', alignItems: 'center', justifyContent: 'center' }} 
+            onPress={() => {
               Alert.alert('Logout', 'Are you sure you want to log out from the Owner operations session?', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Log Out', style: 'destructive', onPress: async () => {
@@ -1755,12 +1778,6 @@ export default function App() {
           >
             <Ionicons name="log-out-outline" size={16} color="#EF4444" />
           </TouchableOpacity>
-          </View>
-          {!isRestaurantOpen && restaurantCloseReason && (
-            <Text style={{ fontSize: normalize(9), color: '#F44336', marginTop: 4, maxWidth: normalize(150), textAlign: 'right', fontWeight: '500' }}>
-              {restaurantCloseReason}
-            </Text>
-          )}
         </View>
       </View>
 
