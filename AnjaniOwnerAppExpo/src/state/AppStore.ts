@@ -132,6 +132,11 @@ interface AppState {
   // Chat System (read-only for owner, full message history per order)
   chatMessages: { [orderId: string]: ChatMessage[] };
   sendChatMessage: (orderId: string, senderRole: 'customer' | 'rider', senderName: string, text: string) => void;
+
+  // Restaurant Status
+  isRestaurantOpen: boolean;
+  restaurantCloseReason: string | null;
+  toggleRestaurantStatus: (isOpen: boolean, reason?: string) => Promise<void>;
 }
 
 // API Network Lookups with emulator failovers
@@ -272,6 +277,17 @@ export const useAppStore = create<AppState>((set, get) => {
   }
 
   return {
+    isRestaurantOpen: true,
+    restaurantCloseReason: null,
+    toggleRestaurantStatus: async (isOpen, reason) => {
+      set({ 
+        isRestaurantOpen: isOpen, 
+        restaurantCloseReason: isOpen ? null : (reason || 'Closed temporarily') 
+      });
+      // In a real app, this would also sync to Firebase
+      // e.g. updateDoc(doc(db, 'settings', 'status'), { isOpen, reason })
+    },
+
     currentUser: null,
     login: async (profile) => {
       // Backwards-compatibility safety

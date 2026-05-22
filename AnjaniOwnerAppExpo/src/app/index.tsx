@@ -575,6 +575,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // --- Restaurant Status Modals ---
+  const [showRestaurantCloseModal, setShowRestaurantCloseModal] = useState(false);
+  const [restaurantCloseReasonInput, setRestaurantCloseReasonInput] = useState('Chef/Workers not available');
+
   const {
     currentUser, 
     login, 
@@ -588,6 +592,9 @@ export default function App() {
     menuItems,
     updateMenuItem,
     deleteMenuItem,
+    isRestaurantOpen,
+    restaurantCloseReason,
+    toggleRestaurantStatus,
   } = useAppStore();
 
   useEffect(() => {
@@ -976,8 +983,40 @@ export default function App() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.dashboardHeader}>
-          <Text style={styles.dashboardTitle}>Anjani's Kitchen</Text>
-          <Text style={styles.dashboardSubtitle}>Admin & Operations Panel</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View>
+              <Text style={styles.dashboardTitle}>Anjani's Kitchen</Text>
+              <Text style={styles.dashboardSubtitle}>Admin & Operations Panel</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <TouchableOpacity 
+                style={[
+                  styles.statusToggleBtn, 
+                  { 
+                    backgroundColor: isRestaurantOpen ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)',
+                    borderColor: isRestaurantOpen ? '#4CAF50' : '#F44336' 
+                  }
+                ]}
+                onPress={() => {
+                  if (isRestaurantOpen) {
+                    setShowRestaurantCloseModal(true);
+                  } else {
+                    toggleRestaurantStatus(true);
+                  }
+                }}
+              >
+                <View style={[styles.statusIndicator, { backgroundColor: isRestaurantOpen ? '#4CAF50' : '#F44336' }]} />
+                <Text style={[styles.statusToggleText, { color: isRestaurantOpen ? '#4CAF50' : '#F44336' }]}>
+                  {isRestaurantOpen ? 'OPEN' : 'CLOSED'}
+                </Text>
+              </TouchableOpacity>
+              {!isRestaurantOpen && restaurantCloseReason && (
+                <Text style={{ fontSize: normalize(9), color: '#F44336', marginTop: 4, maxWidth: normalize(120), textAlign: 'right', fontWeight: '500' }}>
+                  {restaurantCloseReason}
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
 
         {/* 1. Analytics Cards Grid */}
@@ -1667,10 +1706,28 @@ export default function App() {
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(34,197,94,0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' }}>
-            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#22C55E' }} />
-            <Text style={{ fontSize: 11, color: '#22C55E', fontWeight: '700' }}>Live</Text>
-          </View>
+          <TouchableOpacity 
+            style={[
+              styles.statusToggleBtn, 
+              { 
+                backgroundColor: isRestaurantOpen ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)',
+                borderColor: isRestaurantOpen ? '#4CAF50' : '#F44336',
+                marginRight: 6
+              }
+            ]}
+            onPress={() => {
+              if (isRestaurantOpen) {
+                setShowRestaurantCloseModal(true);
+              } else {
+                toggleRestaurantStatus(true);
+              }
+            }}
+          >
+            <View style={[styles.statusIndicator, { backgroundColor: isRestaurantOpen ? '#4CAF50' : '#F44336' }]} />
+            <Text style={[styles.statusToggleText, { color: isRestaurantOpen ? '#4CAF50' : '#F44336' }]}>
+              {isRestaurantOpen ? 'OPEN' : 'CLOSED'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity 
             style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', alignItems: 'center', justifyContent: 'center' }} 
             onPress={() => {
@@ -1734,6 +1791,51 @@ export default function App() {
       
       {/* Edit Details Overlay Dialog */}
       {renderEditModal()}
+
+      {/* --- Close Restaurant Modal --- */}
+      <Modal visible={showRestaurantCloseModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Close Restaurant</Text>
+              <TouchableOpacity onPress={() => setShowRestaurantCloseModal(false)}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: '#9A8A72', fontSize: 13, marginBottom: 16 }}>
+              Select a reason for closing the restaurant temporarily:
+            </Text>
+            
+            {['Chef/Workers not available', 'Heavy Rain/Weather', 'Maintenance/Cleaning', 'Sold Out / Overwhelmed', 'Other'].map(reason => (
+              <TouchableOpacity 
+                key={reason}
+                style={[
+                  styles.reasonOption, 
+                  restaurantCloseReasonInput === reason && styles.reasonOptionSelected
+                ]}
+                onPress={() => setRestaurantCloseReasonInput(reason)}
+              >
+                <Ionicons 
+                  name={restaurantCloseReasonInput === reason ? "radio-button-on" : "radio-button-off"} 
+                  size={20} 
+                  color={restaurantCloseReasonInput === reason ? "#FF6B00" : "#757575"} 
+                />
+                <Text style={styles.reasonText}>{reason}</Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity 
+              style={[styles.primaryBtn, { marginTop: 24, backgroundColor: 'rgba(244, 67, 54, 0.15)', borderColor: '#F44336' }]}
+              onPress={() => {
+                toggleRestaurantStatus(false, restaurantCloseReasonInput);
+                setShowRestaurantCloseModal(false);
+              }}
+            >
+              <Text style={[styles.primaryBtnTxt, { color: '#F44336' }]}>Confirm & Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2704,5 +2806,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#EF4444',
+  },
+  statusToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  statusToggleText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 107, 0, 0.1)',
+  },
+  reasonOptionSelected: {
+    backgroundColor: 'rgba(255, 107, 0, 0.05)',
+  },
+  reasonText: {
+    color: '#F5ECD7',
+    fontSize: 14,
+    marginLeft: 12,
   },
 });
