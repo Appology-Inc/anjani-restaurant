@@ -26,6 +26,8 @@ import AnimatedReanimated from 'react-native-reanimated';
 
 const SCREEN_W = Dimensions.get('window').width;
 const SCREEN_H = Dimensions.get('window').height;
+const SCREEN_WIDTH = SCREEN_W;
+const SCREEN_HEIGHT = SCREEN_H;
 const scale = Math.min(SCREEN_W / 375, 1.2);
 const normalize = (size: number) => Math.round(size * scale);
 
