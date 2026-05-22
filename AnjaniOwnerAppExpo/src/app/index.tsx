@@ -55,14 +55,20 @@ const CAT_ICONS: Record<string, string> = {
 };
 
 function AnimatedDeliveryTrack() {
-  const progress = useRef(new Animated.Value(0)).current;
+  const phase = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    const GLOW  = 650;  // ms each icon stays lit
+    const TRAVEL = 650; // ms dot travels between icons
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(progress, { toValue: 1, duration: 3600, useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 1, duration: GLOW,   useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 2, duration: TRAVEL, useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 3, duration: GLOW,   useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 4, duration: TRAVEL, useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 5, duration: GLOW,   useNativeDriver: true }),
         Animated.delay(400),
-        Animated.timing(progress, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.timing(phase, { toValue: 0, duration: 0,      useNativeDriver: true }),
       ])
     );
     anim.start();
@@ -70,72 +76,110 @@ function AnimatedDeliveryTrack() {
   }, []);
 
   const TRACK_W = normalize(160);
-  const DOT = normalize(6);
+  const ICON_W  = normalize(16);
+  const pos0 = 0;
+  const pos1 = (TRACK_W - ICON_W) / 2;
+  const pos2 = TRACK_W - ICON_W;
 
-  // Dot slides from left=0 to right=TRACK_W-DOT
-  const dotX = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, TRACK_W - DOT],
+  // Food icon — glows at phase 0→1
+  const foodOpacity = phase.interpolate({
+    inputRange: [0, 0.15, 0.85, 1.3, 5],
+    outputRange: [0.22, 1, 1, 0.22, 0.22],
+    extrapolate: 'clamp',
+  });
+  const foodScale = phase.interpolate({
+    inputRange: [0, 0.12, 0.88, 1.3, 5],
+    outputRange: [0.82, 1.2, 1.2, 0.82, 0.82],
+    extrapolate: 'clamp',
   });
 
-  // The filled (active) portion of the track grows with progress
-  const fillScale = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
+  // Rider icon — glows at phase 2→3
+  const riderOpacity = phase.interpolate({
+    inputRange: [1.7, 2.15, 2.85, 3.3, 5],
+    outputRange: [0.22, 1, 1, 0.22, 0.22],
+    extrapolate: 'clamp',
+  });
+  const riderScale = phase.interpolate({
+    inputRange: [1.7, 2.12, 2.88, 3.3, 5],
+    outputRange: [0.82, 1.2, 1.2, 0.82, 0.82],
+    extrapolate: 'clamp',
+  });
+
+  // Home icon — glows at phase 4→5
+  const homeOpacity = phase.interpolate({
+    inputRange: [3.7, 4.15, 4.85, 5],
+    outputRange: [0.22, 1, 1, 0.22],
+    extrapolate: 'clamp',
+  });
+  const homeScale = phase.interpolate({
+    inputRange: [3.7, 4.12, 4.88, 5],
+    outputRange: [0.82, 1.2, 1.2, 0.82],
+    extrapolate: 'clamp',
+  });
+
+  // Dot 1: food → rider (phase 1→2)
+  const dot1X = phase.interpolate({
+    inputRange: [1, 2, 5],
+    outputRange: [pos0 + ICON_W / 2, pos1 + ICON_W / 2, pos1 + ICON_W / 2],
+    extrapolate: 'clamp',
+  });
+  const dot1Opacity = phase.interpolate({
+    inputRange: [0.9, 1.1, 1.85, 2.15, 5],
+    outputRange: [0, 1, 1, 0, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Dot 2: rider → home (phase 3→4)
+  const dot2X = phase.interpolate({
+    inputRange: [3, 4, 5],
+    outputRange: [pos1 + ICON_W / 2, pos2 + ICON_W / 2, pos2 + ICON_W / 2],
+    extrapolate: 'clamp',
+  });
+  const dot2Opacity = phase.interpolate({
+    inputRange: [2.9, 3.1, 3.85, 4.15, 5],
+    outputRange: [0, 1, 1, 0, 0],
+    extrapolate: 'clamp',
   });
 
   return (
     <View style={styles.trackContainer}>
-      {/* Empty track line */}
-      <View style={[styles.trackRoad]} />
+      {/* Hairline connector */}
+      <View style={styles.trackRoad} />
 
-      {/* Filled (progress) track — grows from left */}
+      {/* Food */}
       <Animated.View
-        style={[
-          styles.trackFill,
-          {
-            transformOrigin: 'left',
-            transform: [{ scaleX: fillScale }],
-          },
-        ]}
+        style={[styles.trackIconWrap, { left: pos0, opacity: foodOpacity, transform: [{ scale: foodScale }] }]}
+      >
+        <Ionicons name="pizza-outline" size={normalize(14)} color="#FF6D00" />
+      </Animated.View>
+
+      {/* Rider */}
+      <Animated.View
+        style={[styles.trackIconWrap, { left: pos1, opacity: riderOpacity, transform: [{ scale: riderScale }] }]}
+      >
+        <Ionicons name="bicycle-outline" size={normalize(15)} color="#FF6D00" />
+      </Animated.View>
+
+      {/* Home */}
+      <Animated.View
+        style={[styles.trackIconWrap, { left: pos2, opacity: homeOpacity, transform: [{ scale: homeScale }] }]}
+      >
+        <Ionicons name="home-outline" size={normalize(13)} color="#FF6D00" />
+      </Animated.View>
+
+      {/* Traveling dot: food → rider */}
+      <Animated.View
+        style={[styles.trackDot, { opacity: dot1Opacity, transform: [{ translateX: dot1X }] }]}
       />
 
-      {/* 3 Stop circles at fixed positions */}
-      {[0, 0.5, 1].map((pos, i) => {
-        const stopLeft = pos * (TRACK_W - normalize(8));
-        const stopOpacity = progress.interpolate({
-          inputRange: [Math.max(0, pos - 0.05), pos, Math.min(1, pos + 0.05)],
-          outputRange: [0.3, 1, 0.3],
-          extrapolate: 'clamp',
-        });
-        const icons = ['pizza-outline', 'bicycle-outline', 'home-outline'] as const;
-        return (
-          <View
-            key={i}
-            style={[
-              styles.trackStop,
-              { left: stopLeft },
-            ]}
-          >
-            <Ionicons
-              name={icons[i]}
-              size={normalize(10)}
-              color="rgba(255,255,255,0.45)"
-            />
-          </View>
-        );
-      })}
-
-      {/* Moving bright dot */}
+      {/* Traveling dot: rider → home */}
       <Animated.View
-        style={[
-          styles.trackDot,
-          { transform: [{ translateX: dotX }] },
-        ]}
+        style={[styles.trackDot, { opacity: dot2Opacity, transform: [{ translateX: dot2X }] }]}
       />
     </View>
   );
 }
+
 
 function AnimatedDeliveryTrackOrbit() {
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -1792,7 +1836,7 @@ const styles = StyleSheet.create({
   },
   trackContainer: {
     width: normalize(160),
-    height: normalize(28),
+    height: normalize(30),
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginVertical: normalize(14),
@@ -1802,40 +1846,32 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    top: '50%',
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 1,
   },
-  trackFill: {
-    position: 'absolute',
-    left: 0,
-    width: normalize(160),
-    height: 1,
-    backgroundColor: '#FF6D00',
-    borderRadius: 1,
-    opacity: 0.55,
-  },
-  trackStop: {
+  trackIconWrap: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
     width: normalize(16),
-    marginLeft: -normalize(4),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   trackDot: {
     position: 'absolute',
     top: '50%',
-    marginTop: -normalize(3),
-    width: normalize(6),
-    height: normalize(6),
-    borderRadius: normalize(3),
+    marginTop: -normalize(2.5),
+    marginLeft: -normalize(2.5),
+    width: normalize(5),
+    height: normalize(5),
+    borderRadius: normalize(2.5),
     backgroundColor: '#FF6D00',
     shadowColor: '#FF6D00',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 4,
+    shadowOpacity: 1,
+    shadowRadius: 5,
   },
   travelingIcon: {
     position: 'absolute',
