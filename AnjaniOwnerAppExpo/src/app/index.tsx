@@ -617,21 +617,20 @@ export default function App() {
   }, []);
 
   // Keyboard responsive interpolations
+  // Brand slides all the way to top of screen when keyboard opens
   const keyboardBrandY = keyboardAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -normalize(100)],
+    outputRange: [0, -(SCREEN_H / 2 - normalize(72))],
   });
+  // Shrink brand to compact size to save vertical space
   const keyboardBrandScale = keyboardAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 0.90],
+    outputRange: [1, 0.72],
   });
+  // Track + tagline fade out immediately as keyboard rises
   const keyboardBrandOpacity = keyboardAnim.interpolate({
-    inputRange: [0, 0.6],
+    inputRange: [0, 0.4],
     outputRange: [1, 0],
-  });
-  const keyboardFormY = keyboardAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -normalize(165)],
   });
 
   const brandCinematicOpacity = keyboardAnim.interpolate({
@@ -1450,7 +1449,8 @@ export default function App() {
         <Animated.View style={[styles.overlay, { opacity: authOpacity, backgroundColor: 'rgba(0, 0, 0, 0.65)' }]} pointerEvents="none" />
         <KeyboardAvoidingView 
           style={{ flex: 1, backgroundColor: 'transparent' }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior="padding"
+          keyboardVerticalOffset={0}
         >
           {/* Brand — absolutely centred on screen, slides up on auth transition */}
           <Animated.View
@@ -1502,9 +1502,7 @@ export default function App() {
           <ScrollView 
             contentContainerStyle={[
               styles.scrollContent,
-              {
-                paddingBottom: Math.max(insets.bottom + normalize(32), normalize(48)),
-              }
+              { paddingBottom: Math.max(insets.bottom + normalize(32), normalize(48)) },
             ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -1517,8 +1515,7 @@ export default function App() {
                   { 
                     opacity: authOpacity, 
                     transform: [
-                      { translateY: formTranslateY },
-                      { translateY: keyboardFormY }
+                      { translateY: formTranslateY }
                     ] 
                   }
                 ]}
@@ -1754,9 +1751,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingTop: SCREEN_H * 0.52,
+    justifyContent: 'flex-end',
     paddingHorizontal: normalize(20),
+    paddingBottom: normalize(24),
   },
   brandBox: {
     alignItems: 'center',
