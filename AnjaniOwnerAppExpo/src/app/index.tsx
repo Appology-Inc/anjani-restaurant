@@ -60,8 +60,8 @@ function AnimatedDeliveryTrack() {
   useEffect(() => {
     const animation = Animated.loop(
       Animated.timing(travelAnim, {
-        toValue: 3,
-        duration: 4500,
+        toValue: 1,
+        duration: 3200,
         useNativeDriver: true,
       })
     );
@@ -74,80 +74,85 @@ function AnimatedDeliveryTrack() {
   const containerSize = normalize(18);
   const maxTravel = trackWidth - containerSize;
 
-  // 1. Food Stage (0 -> 1)
-  const foodTranslateX = travelAnim.interpolate({
-    inputRange: [0, 1, 2, 3],
-    outputRange: [0, maxTravel, maxTravel, maxTravel],
+  // Station highlights:
+  // - Food is bright at 0 and fades as glider leaves
+  const foodStationOpacity = travelAnim.interpolate({
+    inputRange: [0, 0.25, 0.75, 1],
+    outputRange: [1, 0.3, 0.3, 1],
   });
-  const foodOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.15, 0.85, 1, 3],
+
+  // - Rider is bright at 0.5
+  const riderStationOpacity = travelAnim.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0.3, 0.3, 1, 0.3, 0.3],
+  });
+
+  // - Home is bright near 1.0
+  const homeStationOpacity = travelAnim.interpolate({
+    inputRange: [0, 0.25, 0.75, 1],
+    outputRange: [0.3, 0.3, 0.3, 1],
+  });
+
+  // Glider horizontal movement
+  const translateX = travelAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, maxTravel],
+  });
+
+  // Active Food Glider (opacity 1 during first half)
+  const activeFoodOpacity = travelAnim.interpolate({
+    inputRange: [0, 0.1, 0.45, 0.5, 1],
     outputRange: [0, 1, 1, 0, 0],
-    extrapolate: 'clamp',
   });
 
-  // 2. Rider Stage (1 -> 2)
-  const riderTranslateX = travelAnim.interpolate({
-    inputRange: [0, 1, 2, 3],
-    outputRange: [0, 0, maxTravel, maxTravel],
-  });
-  const riderOpacity = travelAnim.interpolate({
-    inputRange: [0, 1, 1.15, 1.85, 2, 3],
-    outputRange: [0, 0, 1, 1, 0, 0],
-    extrapolate: 'clamp',
-  });
-
-  // 3. Home Stage (2 -> 3)
-  const homeTranslateX = travelAnim.interpolate({
-    inputRange: [0, 2, 3],
-    outputRange: [0, 0, maxTravel],
-  });
-  const homeOpacity = travelAnim.interpolate({
-    inputRange: [0, 2, 2.15, 2.85, 3],
+  // Active Rider Glider (opacity 1 during second half)
+  const activeRiderOpacity = travelAnim.interpolate({
+    inputRange: [0, 0.5, 0.55, 0.9, 1],
     outputRange: [0, 0, 1, 1, 0],
-    extrapolate: 'clamp',
   });
 
   return (
     <View style={styles.trackContainer}>
       <View style={styles.trackRoad} />
       
-      {/* Food Icon */}
+      {/* 1. Muted Station Icons (Background Stations) */}
+      <Animated.View style={[styles.travelingIcon, { left: 0, opacity: foodStationOpacity }]}>
+        <Ionicons name="pizza-outline" size={normalize(13)} color="rgba(255, 109, 0, 0.3)" />
+      </Animated.View>
+      
+      <Animated.View style={[styles.travelingIcon, { left: maxTravel / 2, opacity: riderStationOpacity }]}>
+        <Ionicons name="bicycle-outline" size={normalize(13)} color="rgba(255, 109, 0, 0.3)" />
+      </Animated.View>
+      
+      <Animated.View style={[styles.travelingIcon, { left: maxTravel, opacity: homeStationOpacity }]}>
+        <Ionicons name="home-outline" size={normalize(13)} color="rgba(255, 109, 0, 0.3)" />
+      </Animated.View>
+
+      {/* 2. Active Moving Gliders (Moving along the line) */}
+      {/* Moving Food Glider */}
       <Animated.View 
         style={[
           styles.travelingIcon, 
           { 
-            opacity: foodOpacity,
-            transform: [{ translateX: foodTranslateX }] 
+            opacity: activeFoodOpacity,
+            transform: [{ translateX }] 
           }
         ]}
       >
         <Ionicons name="pizza-outline" size={normalize(13)} color="#FF6D00" />
       </Animated.View>
 
-      {/* Rider Icon */}
+      {/* Moving Rider Glider */}
       <Animated.View 
         style={[
           styles.travelingIcon, 
           { 
-            opacity: riderOpacity,
-            transform: [{ translateX: riderTranslateX }] 
+            opacity: activeRiderOpacity,
+            transform: [{ translateX }] 
           }
         ]}
       >
         <Ionicons name="bicycle-outline" size={normalize(13)} color="#FF6D00" />
-      </Animated.View>
-
-      {/* Home Icon */}
-      <Animated.View 
-        style={[
-          styles.travelingIcon, 
-          { 
-            opacity: homeOpacity,
-            transform: [{ translateX: homeTranslateX }] 
-          }
-        ]}
-      >
-        <Ionicons name="home-outline" size={normalize(13)} color="#FF6D00" />
       </Animated.View>
     </View>
   );
