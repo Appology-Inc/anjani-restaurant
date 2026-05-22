@@ -1487,7 +1487,6 @@ export default function App() {
                 <Text style={styles.compactTitle}>
                   ANJANI <Text style={{ fontWeight: '300' }}>RESTAURANT</Text>
                 </Text>
-                <AnimatedDeliveryTrack />
               </Animated.View>
             )}
 
