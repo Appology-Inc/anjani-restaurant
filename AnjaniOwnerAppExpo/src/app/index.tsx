@@ -56,83 +56,98 @@ const CAT_ICONS: Record<string, string> = {
 
 function AnimatedDeliveryTrack() {
   const travelAnim = useRef(new Animated.Value(0)).current;
-  const [iconPhase, setIconPhase] = useState<'food' | 'rider' | 'home'>('food');
 
   useEffect(() => {
-    const duration = 3200; // Premium slow glide speed
-    
-    const runAnim = () => {
-      travelAnim.setValue(0);
-      setIconPhase('food');
-      
+    const animation = Animated.loop(
       Animated.timing(travelAnim, {
-        toValue: 1,
-        duration: duration,
+        toValue: 3,
+        duration: 4500,
         useNativeDriver: true,
-      }).start((result) => {
-        if (result.finished) {
-          runAnim();
-        }
-      });
-    };
-    
-    runAnim();
+      })
+    );
+    animation.start();
 
-    let t1: any;
-    let t2: any;
-    let t3: any;
-    
-    const startTimers = () => {
-      t1 = setTimeout(() => setIconPhase('rider'), duration * 0.33);
-      t2 = setTimeout(() => setIconPhase('home'), duration * 0.66);
-      t3 = setTimeout(() => {
-        startTimers();
-      }, duration);
-    };
-    
-    startTimers();
-
-    return () => {
-      travelAnim.stopAnimation();
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    return () => animation.stop();
   }, []);
 
   const trackWidth = normalize(120);
   const containerSize = normalize(18);
-  const translateX = travelAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, trackWidth - containerSize],
+  const maxTravel = trackWidth - containerSize;
+
+  // 1. Food Stage (0 -> 1)
+  const foodTranslateX = travelAnim.interpolate({
+    inputRange: [0, 1, 2, 3],
+    outputRange: [0, maxTravel, maxTravel, maxTravel],
+  });
+  const foodOpacity = travelAnim.interpolate({
+    inputRange: [0, 0.15, 0.85, 1, 3],
+    outputRange: [0, 1, 1, 0, 0],
+    extrapolate: 'clamp',
   });
 
-  const iconOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.15, 0.85, 1],
-    outputRange: [0, 1, 1, 0],
+  // 2. Rider Stage (1 -> 2)
+  const riderTranslateX = travelAnim.interpolate({
+    inputRange: [0, 1, 2, 3],
+    outputRange: [0, 0, maxTravel, maxTravel],
+  });
+  const riderOpacity = travelAnim.interpolate({
+    inputRange: [0, 1, 1.15, 1.85, 2, 3],
+    outputRange: [0, 0, 1, 1, 0, 0],
+    extrapolate: 'clamp',
   });
 
-  const getIconName = () => {
-    switch (iconPhase) {
-      case 'food': return 'pizza-outline';
-      case 'rider': return 'bicycle-outline';
-      case 'home': return 'home-outline';
-    }
-  };
+  // 3. Home Stage (2 -> 3)
+  const homeTranslateX = travelAnim.interpolate({
+    inputRange: [0, 2, 3],
+    outputRange: [0, 0, maxTravel],
+  });
+  const homeOpacity = travelAnim.interpolate({
+    inputRange: [0, 2, 2.15, 2.85, 3],
+    outputRange: [0, 0, 1, 1, 0],
+    extrapolate: 'clamp',
+  });
 
   return (
     <View style={styles.trackContainer}>
       <View style={styles.trackRoad} />
+      
+      {/* Food Icon */}
       <Animated.View 
         style={[
           styles.travelingIcon, 
           { 
-            opacity: iconOpacity,
-            transform: [{ translateX }] 
+            opacity: foodOpacity,
+            transform: [{ translateX: foodTranslateX }] 
           }
         ]}
       >
-        <Ionicons name={getIconName()} size={normalize(13)} color="#FF6D00" />
+        <Ionicons name="pizza-outline" size={normalize(13)} color="#FF6D00" />
+      </Animated.View>
+
+      {/* Rider Icon */}
+      <Animated.View 
+        style={[
+          styles.travelingIcon, 
+          { 
+            opacity: riderOpacity,
+            transform: [{ translateX: riderTranslateX }] 
+          }
+        ]}
+      >
+        <Ionicons name="bicycle-outline" size={normalize(13)} color="#FF6D00" />
+      </Animated.View>
+
+      {/* Home Icon */}
+      <Animated.View 
+        style={[
+          styles.travelingIcon, 
+          { 
+            opacity: homeOpacity,
+            transform: [{ translateX: homeTranslateX }] 
+          }
+        ]}
+      >
+        <Ionicons name="home-outline" size={normalize(13)} color="#FF6D00" />
       </Animated.View>
     </View>
   );
@@ -1484,40 +1499,6 @@ export default function App() {
                 }
               ]}
             >
-              {/* Volumetric Backlight Glow */}
-              <Animated.View 
-                style={[
-                  styles.volumetricGlow,
-                  {
-                    opacity: keyboardBrandOpacity,
-                  }
-                ]}
-                pointerEvents="none"
-              >
-                <Animated.View 
-                  style={{
-                    width: normalize(200),
-                    height: normalize(80),
-                    borderRadius: normalize(40),
-                    backgroundColor: '#FF6B00',
-                    shadowColor: '#FF6B00',
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.95,
-                    shadowRadius: 55,
-                    opacity: brandBreathe.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.15, 0.28],
-                    }),
-                    transform: [{
-                      scale: brandBreathe.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.25],
-                      })
-                    }]
-                  }}
-                />
-              </Animated.View>
-
               {/* Cinematic (Two-line) Title */}
               <Animated.View style={{ opacity: brandCinematicOpacity, alignItems: 'center', width: '100%' }}>
                 <Text style={styles.title}>ANJANI</Text>
