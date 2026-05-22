@@ -558,7 +558,7 @@ export default function App() {
   const imageTranslateX = useRef(new Animated.Value(0)).current;
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const authOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(0)).current;
+  const titleTranslateY = useRef(new Animated.Value(SCREEN_H * 0.24)).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
   const keyboardAnim = useRef(new Animated.Value(0)).current;
   const emailGlow = useRef(new Animated.Value(0)).current;
@@ -1750,8 +1750,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: normalize(24),
-    gap: normalize(32),
+    paddingHorizontal: normalize(20),
+    gap: normalize(16),
   },
   brandBox: {
     alignItems: 'center',
@@ -1808,6 +1808,11 @@ const styles = StyleSheet.create({
     height: normalize(18),
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#FF6D00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 4,
     position: 'absolute',
     left: 0,
   },
