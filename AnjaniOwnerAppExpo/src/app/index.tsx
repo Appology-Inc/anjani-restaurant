@@ -74,23 +74,18 @@ function AnimatedDeliveryTrack() {
   const containerSize = normalize(18);
   const maxTravel = trackWidth - containerSize;
 
-  // Station highlights:
-  // - Food is bright at 0 and fades as glider leaves
+  // Station highlights: all icons always visible, muted dim white, glow on active
   const foodStationOpacity = travelAnim.interpolate({
     inputRange: [0, 0.25, 0.75, 1],
-    outputRange: [1, 0.3, 0.3, 1],
+    outputRange: [0.85, 0.25, 0.25, 0.85],
   });
-
-  // - Rider is bright at 0.5
   const riderStationOpacity = travelAnim.interpolate({
     inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0.3, 0.3, 1, 0.3, 0.3],
+    outputRange: [0.25, 0.25, 0.85, 0.25, 0.25],
   });
-
-  // - Home is bright near 1.0
   const homeStationOpacity = travelAnim.interpolate({
     inputRange: [0, 0.25, 0.75, 1],
-    outputRange: [0.3, 0.3, 0.3, 1],
+    outputRange: [0.25, 0.25, 0.25, 0.85],
   });
 
   // Glider horizontal movement
@@ -99,37 +94,37 @@ function AnimatedDeliveryTrack() {
     outputRange: [0, maxTravel],
   });
 
-  // Active Food Glider (opacity 1 during first half)
+  // Active Food Glider (first half)
   const activeFoodOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.1, 0.45, 0.5, 1],
+    inputRange: [0, 0.08, 0.42, 0.5, 1],
     outputRange: [0, 1, 1, 0, 0],
   });
 
-  // Active Rider Glider (opacity 1 during second half)
+  // Active Rider Glider (second half)
   const activeRiderOpacity = travelAnim.interpolate({
-    inputRange: [0, 0.5, 0.55, 0.9, 1],
+    inputRange: [0, 0.5, 0.58, 0.92, 1],
     outputRange: [0, 0, 1, 1, 0],
   });
+
 
   return (
     <View style={styles.trackContainer}>
       <View style={styles.trackRoad} />
       
-      {/* 1. Muted Station Icons (Background Stations) */}
+      {/* 1. Muted Station Icons — always visible, dim, blend with dark theme */}
       <Animated.View style={[styles.travelingIcon, { left: 0, opacity: foodStationOpacity }]}>
-        <Ionicons name="pizza-outline" size={normalize(13)} color="rgba(255, 109, 0, 0.3)" />
+        <Ionicons name="pizza-outline" size={normalize(13)} color="rgba(255,255,255,0.4)" />
       </Animated.View>
       
       <Animated.View style={[styles.travelingIcon, { left: maxTravel / 2, opacity: riderStationOpacity }]}>
-        <Ionicons name="bicycle-outline" size={normalize(13)} color="rgba(255, 109, 0, 0.3)" />
+        <Ionicons name="bicycle-outline" size={normalize(13)} color="rgba(255,255,255,0.4)" />
       </Animated.View>
       
       <Animated.View style={[styles.travelingIcon, { left: maxTravel, opacity: homeStationOpacity }]}>
-        <Ionicons name="home-outline" size={normalize(13)} color="rgba(255, 109, 0, 0.3)" />
+        <Ionicons name="home-outline" size={normalize(13)} color="rgba(255,255,255,0.4)" />
       </Animated.View>
 
-      {/* 2. Active Moving Gliders (Moving along the line) */}
-      {/* Moving Food Glider */}
+      {/* 2. Active Moving Gliders — bright warm orange on the move */}
       <Animated.View 
         style={[
           styles.travelingIcon, 
@@ -142,7 +137,6 @@ function AnimatedDeliveryTrack() {
         <Ionicons name="pizza-outline" size={normalize(13)} color="#FF6D00" />
       </Animated.View>
 
-      {/* Moving Rider Glider */}
       <Animated.View 
         style={[
           styles.travelingIcon, 
@@ -1473,8 +1467,6 @@ export default function App() {
         <Animated.View style={[styles.overlay, { opacity: splashOpacity, backgroundColor: 'rgba(0, 0, 0, 0.75)' }]} pointerEvents="none" />
         <Animated.View style={[styles.overlay, { opacity: authOpacity, backgroundColor: 'rgba(0, 0, 0, 0.65)' }]} pointerEvents="none" />
 
-        {/* GPU-Accelerated Background Embers Engine */}
-        <BackgroundEmbers />
 
         <KeyboardAvoidingView 
           style={{ flex: 1, backgroundColor: 'transparent' }}
@@ -1775,9 +1767,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: normalize(70),
     paddingHorizontal: normalize(20),
-    gap: normalize(16),
+    gap: normalize(20),
   },
   brandBox: {
     alignItems: 'center',
@@ -1815,17 +1808,17 @@ const styles = StyleSheet.create({
   },
   trackContainer: {
     width: normalize(140),
-    height: normalize(44),
+    height: normalize(26),
     justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: normalize(12),
+    alignItems: 'flex-start',
+    marginVertical: normalize(10),
     position: 'relative',
   },
   trackRoad: {
     position: 'absolute',
-    width: normalize(120),
-    height: 1.5,
-    backgroundColor: 'rgba(255, 107, 0, 0.2)',
+    width: normalize(140),
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 1,
   },
   travelingIcon: {
