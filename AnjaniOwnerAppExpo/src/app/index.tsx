@@ -132,11 +132,11 @@ export default function App() {
   // Keyboard responsive interpolations
   const keyboardBrandY = keyboardAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -normalize(40)],
+    outputRange: [0, -normalize(100)],
   });
   const keyboardBrandScale = keyboardAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 0.72],
+    outputRange: [1, 0.90],
   });
   const keyboardBrandOpacity = keyboardAnim.interpolate({
     inputRange: [0, 0.6],
@@ -144,7 +144,18 @@ export default function App() {
   });
   const keyboardFormY = keyboardAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -normalize(90)],
+    outputRange: [0, -normalize(165)],
+  });
+
+  const brandCinematicOpacity = keyboardAnim.interpolate({
+    inputRange: [0, 0.35],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const brandCompactOpacity = keyboardAnim.interpolate({
+    inputRange: [0.35, 1],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
   });
 
   useEffect(() => {
@@ -971,8 +982,18 @@ export default function App() {
                 }
               ]}
             >
-              <Text style={styles.title}>ANJANI</Text>
-              <Text style={styles.titleSecond}>RESTAURANT</Text>
+              {/* Cinematic (Two-line) Title */}
+              <Animated.View style={{ opacity: brandCinematicOpacity, alignItems: 'center', width: '100%' }}>
+                <Text style={styles.title}>ANJANI</Text>
+                <Text style={styles.titleSecond}>RESTAURANT</Text>
+              </Animated.View>
+
+              {/* Compact (Single-line) Title */}
+              <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', opacity: brandCompactOpacity }} pointerEvents="none">
+                <Text style={styles.compactTitle}>
+                  ANJANI <Text style={{ fontWeight: '300' }}>RESTAURANT</Text>
+                </Text>
+              </Animated.View>
               
               {/* Animated Divider & Tagline Wrapper which fades out on keyboard */}
               <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
@@ -1241,6 +1262,16 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
     textAlign: 'center',
     marginTop: 4,
+  },
+  compactTitle: {
+    fontSize: normalize(24),
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: normalize(4),
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 10,
+    textAlign: 'center',
   },
   divider: {
     width: normalize(50),
