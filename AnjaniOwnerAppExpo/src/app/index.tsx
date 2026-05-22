@@ -53,7 +53,7 @@ export default function App() {
   const imageTranslateX = useRef(new Animated.Value(0)).current;
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const authOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(SCREEN_H * 0.23)).current;
+  const titleTranslateY = useRef(new Animated.Value(0)).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
 
   // --- Auth Form States ---
@@ -115,7 +115,7 @@ export default function App() {
           Animated.parallel([
             Animated.timing(splashOpacity, { toValue: 0, duration: 2000, useNativeDriver: true }),
             Animated.timing(authOpacity, { toValue: 1, duration: 2000, useNativeDriver: true }),
-            Animated.timing(titleTranslateY, { toValue: 0, duration: 1800, useNativeDriver: true }),
+            Animated.timing(titleTranslateY, { toValue: -normalize(60), duration: 1800, useNativeDriver: true }),
             Animated.timing(formTranslateY, { toValue: 0, duration: 1800, useNativeDriver: true }),
           ]).start();
         }, 2500);
@@ -1063,7 +1063,7 @@ export default function App() {
                   // Reset animation values for clean slide-in next time
                   splashOpacity.setValue(1);
                   authOpacity.setValue(0);
-                  titleTranslateY.setValue(SCREEN_H * 0.23);
+                  titleTranslateY.setValue(0);
                   formTranslateY.setValue(45);
                   setShowSplash(true);
                 }}

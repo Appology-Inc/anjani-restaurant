@@ -292,7 +292,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
       // Persist locally
       try {
-        await AsyncStorage.setItem('anjani_user_profile', JSON.stringify(profile));
+        await AsyncStorage.setItem('anjani_owner_user_profile', JSON.stringify(profile));
         await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(get().previousOrders));
       } catch (err) {
         console.error('Local persistence save error:', err);
@@ -309,7 +309,7 @@ export const useAppStore = create<AppState>((set, get) => {
       if (timerId) clearInterval(timerId);
       set({ currentUser: null, activeOrder: null, cart: {} });
       try {
-        await AsyncStorage.removeItem('anjani_user_profile');
+        await AsyncStorage.removeItem('anjani_owner_user_profile');
         await AsyncStorage.removeItem('anjani_previous_orders');
       } catch (err) {
         console.error('Local persistence clear error:', err);
@@ -350,7 +350,7 @@ export const useAppStore = create<AppState>((set, get) => {
               previousOrders: cloudUser.previousOrders || [] 
             });
 
-            await AsyncStorage.setItem('anjani_user_profile', JSON.stringify(cloudUser));
+            await AsyncStorage.setItem('anjani_owner_user_profile', JSON.stringify(cloudUser));
             await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(cloudUser.previousOrders || []));
             console.log('Successfully recovered profile from Firebase:', key);
             return true;
@@ -377,7 +377,7 @@ export const useAppStore = create<AppState>((set, get) => {
           });
 
           // Sync to local AsyncStorage
-          await AsyncStorage.setItem('anjani_user_profile', JSON.stringify(cloudUser));
+          await AsyncStorage.setItem('anjani_owner_user_profile', JSON.stringify(cloudUser));
           await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(cloudUser.previousOrders || []));
           return true;
         }
@@ -428,7 +428,7 @@ export const useAppStore = create<AppState>((set, get) => {
     },
     loadSavedSession: async () => {
       try {
-        const userStr = await AsyncStorage.getItem('anjani_user_profile');
+        const userStr = await AsyncStorage.getItem('anjani_owner_user_profile');
         const ordersStr = await AsyncStorage.getItem('anjani_previous_orders');
         
         if (userStr) {
@@ -482,7 +482,7 @@ export const useAppStore = create<AppState>((set, get) => {
               currentUser: cloudUser,
               previousOrders: cloudUser.previousOrders || []
             });
-            await AsyncStorage.setItem('anjani_user_profile', JSON.stringify(cloudUser));
+            await AsyncStorage.setItem('anjani_owner_user_profile', JSON.stringify(cloudUser));
             await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(cloudUser.previousOrders || []));
             console.log('Silently synchronized profile cache with cloud DB.');
           }
@@ -520,7 +520,7 @@ export const useAppStore = create<AppState>((set, get) => {
       };
 
       set({ currentUser: updatedUser });
-      await AsyncStorage.setItem('anjani_user_profile', JSON.stringify(updatedUser));
+      await AsyncStorage.setItem('anjani_owner_user_profile', JSON.stringify(updatedUser));
       await get().syncWithCloud();
     },
     deleteSavedAddress: async (addressId) => {
@@ -545,7 +545,7 @@ export const useAppStore = create<AppState>((set, get) => {
       };
 
       set({ currentUser: updatedUser });
-      await AsyncStorage.setItem('anjani_user_profile', JSON.stringify(updatedUser));
+      await AsyncStorage.setItem('anjani_owner_user_profile', JSON.stringify(updatedUser));
       await get().syncWithCloud();
     },
     selectSavedAddress: async (addressId) => {
@@ -564,7 +564,7 @@ export const useAppStore = create<AppState>((set, get) => {
       };
 
       set({ currentUser: updatedUser });
-      await AsyncStorage.setItem('anjani_user_profile', JSON.stringify(updatedUser));
+      await AsyncStorage.setItem('anjani_owner_user_profile', JSON.stringify(updatedUser));
       await get().syncWithCloud();
     },
     updateAddress: async (details, latitude, longitude) => {
@@ -606,7 +606,7 @@ export const useAppStore = create<AppState>((set, get) => {
       };
 
       set({ currentUser: updatedUser });
-      await AsyncStorage.setItem('anjani_user_profile', JSON.stringify(updatedUser));
+      await AsyncStorage.setItem('anjani_owner_user_profile', JSON.stringify(updatedUser));
       await get().syncWithCloud();
     },
 
