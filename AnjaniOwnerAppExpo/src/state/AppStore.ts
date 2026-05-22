@@ -271,6 +271,22 @@ export const useAppStore = create<AppState>((set, get) => {
       }, (error: any) => {
         console.warn('Firestore menu sync deferred/unauthorized: ', error.message);
       });
+
+      // Real-time Firestore sync for restaurant status
+      const { doc } = require('firebase/firestore');
+      const statusRef = doc(db, 'settings', 'status');
+      onSnapshot(statusRef, (snapshot: any) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          set({
+            isRestaurantOpen: data.isOpen !== false,
+            restaurantCloseReason: data.reason || null
+          });
+        }
+      }, (error: any) => {
+        console.warn('Firestore status sync deferred/unauthorized: ', error.message);
+      });
+
     } catch (e) {
       console.log('Error initializing real-time Firestore listener:', e);
     }
@@ -284,8 +300,18 @@ export const useAppStore = create<AppState>((set, get) => {
         isRestaurantOpen: isOpen, 
         restaurantCloseReason: isOpen ? null : (reason || 'Closed temporarily') 
       });
-      // In a real app, this would also sync to Firebase
-      // e.g. updateDoc(doc(db, 'settings', 'status'), { isOpen, reason })
+      
+      if (isFirebaseConfigured) {
+        try {
+          const { doc, setDoc } = require('firebase/firestore');
+          await setDoc(doc(db, 'settings', 'status'), {
+            isOpen,
+            reason: isOpen ? null : (reason || 'Closed temporarily')
+          });
+        } catch (e: any) {
+          console.log('Error syncing restaurant status to Firestore:', e.message);
+        }
+      }
     },
 
     currentUser: null,
