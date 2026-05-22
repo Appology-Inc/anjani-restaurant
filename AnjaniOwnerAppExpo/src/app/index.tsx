@@ -1030,29 +1030,8 @@ export default function App() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.dashboardHeader}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View>
-              <Text style={styles.dashboardTitle}>Anjani's Kitchen</Text>
-              <Text style={styles.dashboardSubtitle}>Admin & Operations Panel</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <AnimatedRestaurantToggle 
-                isOpen={isRestaurantOpen}
-                onPress={() => {
-                  if (isRestaurantOpen) {
-                    setShowRestaurantCloseModal(true);
-                  } else {
-                    toggleRestaurantStatus(true);
-                  }
-                }}
-              />
-              {!isRestaurantOpen && restaurantCloseReason && (
-                <Text style={{ fontSize: normalize(9), color: '#F44336', marginTop: 4, maxWidth: normalize(120), textAlign: 'right', fontWeight: '500' }}>
-                  {restaurantCloseReason}
-                </Text>
-              )}
-            </View>
-          </View>
+          <Text style={styles.dashboardTitle}>Anjani's Kitchen</Text>
+          <Text style={styles.dashboardSubtitle}>Admin & Operations Panel</Text>
         </View>
 
         {/* 1. Analytics Cards Grid */}
@@ -1741,20 +1720,21 @@ export default function App() {
             <Text style={{ fontSize: 11, color: '#9A8A72' }}>Owner Operations Suite</Text>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <AnimatedRestaurantToggle 
-            isOpen={isRestaurantOpen}
-            onPress={() => {
-              if (isRestaurantOpen) {
-                setShowRestaurantCloseModal(true);
-              } else {
-                toggleRestaurantStatus(true);
-              }
-            }}
-          />
-          <TouchableOpacity 
-            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', alignItems: 'center', justifyContent: 'center' }} 
-            onPress={() => {
+        <View style={{ alignItems: 'flex-end' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <AnimatedRestaurantToggle 
+              isOpen={isRestaurantOpen}
+              onPress={() => {
+                if (isRestaurantOpen) {
+                  setShowRestaurantCloseModal(true);
+                } else {
+                  toggleRestaurantStatus(true);
+                }
+              }}
+            />
+            <TouchableOpacity 
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', alignItems: 'center', justifyContent: 'center' }} 
+              onPress={() => {
               Alert.alert('Logout', 'Are you sure you want to log out from the Owner operations session?', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Log Out', style: 'destructive', onPress: async () => {
@@ -1775,6 +1755,12 @@ export default function App() {
           >
             <Ionicons name="log-out-outline" size={16} color="#EF4444" />
           </TouchableOpacity>
+          </View>
+          {!isRestaurantOpen && restaurantCloseReason && (
+            <Text style={{ fontSize: normalize(9), color: '#F44336', marginTop: 4, maxWidth: normalize(150), textAlign: 'right', fontWeight: '500' }}>
+              {restaurantCloseReason}
+            </Text>
+          )}
         </View>
       </View>
 
