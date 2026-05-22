@@ -558,7 +558,7 @@ export default function App() {
   const imageTranslateX = useRef(new Animated.Value(0)).current;
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const authOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(0)).current;
+  const titleTranslateY = useRef(new Animated.Value(normalize(190))).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
   const keyboardAnim = useRef(new Animated.Value(0)).current;
   const emailGlow = useRef(new Animated.Value(0)).current;
@@ -617,10 +617,6 @@ export default function App() {
   }, []);
 
   // Keyboard responsive interpolations
-  const keyboardBrandY = keyboardAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -normalize(100)],
-  });
   const keyboardBrandScale = keyboardAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 0.90],
@@ -687,7 +683,7 @@ export default function App() {
           Animated.parallel([
             Animated.timing(splashOpacity, { toValue: 0, duration: 2000, useNativeDriver: true }),
             Animated.timing(authOpacity, { toValue: 1, duration: 2000, useNativeDriver: true }),
-            Animated.timing(titleTranslateY, { toValue: -normalize(55), duration: 1800, useNativeDriver: true }),
+            Animated.timing(titleTranslateY, { toValue: 0, duration: 1800, useNativeDriver: true }),
             Animated.timing(formTranslateY, { toValue: 0, duration: 1800, useNativeDriver: true }),
           ]).start();
         }, 2500);
@@ -1472,7 +1468,6 @@ export default function App() {
                 { 
                   transform: [
                     { translateY: titleTranslateY },
-                    { translateY: keyboardBrandY },
                     { scale: keyboardBrandScale }
                   ] 
                 }
