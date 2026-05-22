@@ -558,7 +558,7 @@ export default function App() {
   const imageTranslateX = useRef(new Animated.Value(0)).current;
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const authOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(SCREEN_H * 0.24)).current;
+  const titleTranslateY = useRef(new Animated.Value(0)).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
   const keyboardAnim = useRef(new Animated.Value(0)).current;
   const emailGlow = useRef(new Animated.Value(0)).current;
