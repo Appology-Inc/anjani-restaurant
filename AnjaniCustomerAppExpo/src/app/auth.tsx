@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Animated, TextInput, KeyboardAvoidingView, Platform, Modal, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Animated, TextInput, KeyboardAvoidingView, Platform, Modal, ScrollView, ActivityIndicator, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SlideInDown, SlideOutDown } from 'react-native-reanimated';
@@ -42,6 +42,51 @@ export default function AuthScreen() {
   // Movement
   const titleTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT * 0.25)).current; // Starts pushed down
   const formTranslateY = useRef(new Animated.Value(40)).current; // Starts slightly low
+  const keyboardAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: 1,
+        duration: e?.duration || 250,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: 0,
+        duration: e?.duration || 250,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Keyboard responsive interpolations
+  const keyboardBrandY = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -normalize(40)],
+  });
+  const keyboardBrandScale = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.72],
+  });
+  const keyboardBrandOpacity = keyboardAnim.interpolate({
+    inputRange: [0, 0.6],
+    outputRange: [1, 0],
+  });
+  const keyboardFormY = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -normalize(25)],
+  });
 
   useEffect(() => {
     // 1. Continuous slow cinematic pan for BOTH backgrounds
@@ -286,22 +331,47 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Morphing Brand Box */}
-          <Animated.View style={[styles.brandBox, { transform: [{ translateY: titleTranslateY }] }]}>
+          <Animated.View 
+            style={[
+              styles.brandBox, 
+              { 
+                transform: [
+                  { translateY: titleTranslateY },
+                  { translateY: keyboardBrandY },
+                  { scale: keyboardBrandScale }
+                ] 
+              }
+            ]}
+          >
             <Text style={styles.title}>ANJANI</Text>
             <Text style={styles.titleSecond}>RESTAURANT</Text>
-            <View style={styles.divider} />
             
-            {/* Tagline (Splash Screen Only) */}
-            <View style={styles.taglineWrapper}>
-              <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
-                Served Hot, Crafted with Love
-              </Animated.Text>
-            </View>
-
+            {/* Animated Divider & Tagline Wrapper which fades out on keyboard */}
+            <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
+              <View style={styles.divider} />
+              
+              {/* Tagline (Splash Screen Only) */}
+              <View style={styles.taglineWrapper}>
+                <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
+                  Served Hot, Crafted with Love
+                </Animated.Text>
+              </View>
+            </Animated.View>
           </Animated.View>
 
           {/* Fade In & Slide Up Auth Form */}
-          <Animated.View style={[styles.actionBox, { opacity: authOpacity, transform: [{ translateY: formTranslateY }] }]}>
+          <Animated.View 
+            style={[
+              styles.actionBox, 
+              { 
+                opacity: authOpacity, 
+                transform: [
+                  { translateY: formTranslateY },
+                  { translateY: keyboardFormY }
+                ] 
+              }
+            ]}
+          >
             
             {/* Tabs */}
             <View style={styles.tabContainer}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, Animated,
-  StatusBar, TextInput, KeyboardAvoidingView, Platform, FlatList, ActivityIndicator, Dimensions, Modal
+  StatusBar, TextInput, KeyboardAvoidingView, Platform, FlatList, ActivityIndicator, Dimensions, Modal, Keyboard
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +45,7 @@ export default function RiderApp() {
   const authOpacity = useRef(new Animated.Value(0)).current;
   const titleTranslateY = useRef(new Animated.Value(SCREEN_H * 0.23)).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
+  const keyboardAnim = useRef(new Animated.Value(0)).current;
 
   // --- Auth Form States ---
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signup');
@@ -69,6 +70,50 @@ export default function RiderApp() {
     chatMessages, 
     sendChatMessage 
   } = useAppStore();
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: 1,
+        duration: e?.duration || 250,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: 0,
+        duration: e?.duration || 250,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Keyboard responsive interpolations
+  const keyboardBrandY = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -normalize(40)],
+  });
+  const keyboardBrandScale = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.72],
+  });
+  const keyboardBrandOpacity = keyboardAnim.interpolate({
+    inputRange: [0, 0.6],
+    outputRange: [1, 0],
+  });
+  const keyboardFormY = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -normalize(25)],
+  });
 
   const restaurantCoords = { lat: 17.0790, lng: 82.1374 };
 
@@ -440,22 +485,48 @@ export default function RiderApp() {
             keyboardShouldPersistTaps="handled"
           >
             {/* Morphing Brand Box */}
-            <Animated.View style={[styles.brandBox, { transform: [{ translateY: titleTranslateY }] }]}>
+            <Animated.View 
+              style={[
+                styles.brandBox, 
+                { 
+                  transform: [
+                    { translateY: titleTranslateY },
+                    { translateY: keyboardBrandY },
+                    { scale: keyboardBrandScale }
+                  ] 
+                }
+              ]}
+            >
               <Text style={styles.title}>ANJANI</Text>
               <Text style={styles.titleSecond}>RIDER PARTNER</Text>
-              <View style={styles.divider} />
               
-              {/* Tagline (Splash Screen Only) */}
-              <View style={styles.taglineWrapper}>
-                <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
-                  Served Hot, Delivered Fast 🔥
-                </Animated.Text>
-              </View>
+              {/* Animated Divider & Tagline Wrapper which fades out on keyboard */}
+              <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
+                <View style={styles.divider} />
+                
+                {/* Tagline (Splash Screen Only) */}
+                <View style={styles.taglineWrapper}>
+                  <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
+                    Served Hot, Delivered Fast 🔥
+                  </Animated.Text>
+                </View>
+              </Animated.View>
             </Animated.View>
 
             {/* Fade In & Slide Up Auth Form */}
             {!currentUser && (
-              <Animated.View style={[styles.actionBox, { opacity: authOpacity, transform: [{ translateY: formTranslateY }] }]}>
+              <Animated.View 
+                style={[
+                  styles.actionBox, 
+                  { 
+                    opacity: authOpacity, 
+                    transform: [
+                      { translateY: formTranslateY },
+                      { translateY: keyboardFormY }
+                    ] 
+                  }
+                ]}
+              >
                 {/* Tabs */}
                 <View style={styles.tabContainer}>
                   <TouchableOpacity 

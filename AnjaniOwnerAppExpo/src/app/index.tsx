@@ -15,7 +15,8 @@ import {
   ActivityIndicator,
   Modal,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Keyboard
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +56,7 @@ export default function App() {
   const authOpacity = useRef(new Animated.Value(0)).current;
   const titleTranslateY = useRef(new Animated.Value(0)).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
+  const keyboardAnim = useRef(new Animated.Value(0)).current;
 
   // --- Auth Form States ---
   const [activeAuthTab, setActiveAuthTab] = useState<'signin' | 'signup'>('signin');
@@ -80,6 +82,50 @@ export default function App() {
     updateMenuItem,
     deleteMenuItem,
   } = useAppStore();
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: 1,
+        duration: e?.duration || 250,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: 0,
+        duration: e?.duration || 250,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Keyboard responsive interpolations
+  const keyboardBrandY = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -normalize(40)],
+  });
+  const keyboardBrandScale = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.72],
+  });
+  const keyboardBrandOpacity = keyboardAnim.interpolate({
+    inputRange: [0, 0.6],
+    outputRange: [1, 0],
+  });
+  const keyboardFormY = keyboardAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -normalize(25)],
+  });
 
   useEffect(() => {
     const init = async () => {
@@ -886,22 +932,48 @@ export default function App() {
             keyboardShouldPersistTaps="handled"
           >
             {/* Morphing Brand Box */}
-            <Animated.View style={[styles.brandBox, { transform: [{ translateY: titleTranslateY }] }]}>
+            <Animated.View 
+              style={[
+                styles.brandBox, 
+                { 
+                  transform: [
+                    { translateY: titleTranslateY },
+                    { translateY: keyboardBrandY },
+                    { scale: keyboardBrandScale }
+                  ] 
+                }
+              ]}
+            >
               <Text style={styles.title}>ANJANI</Text>
               <Text style={styles.titleSecond}>KITCHEN OWNER</Text>
-              <View style={styles.divider} />
               
-              {/* Tagline (Splash Screen Only) */}
-              <View style={styles.taglineWrapper}>
-                <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
-                  Kitchen & Dispatch Operations Suite 🔥
-                </Animated.Text>
-              </View>
+              {/* Animated Divider & Tagline Wrapper which fades out on keyboard */}
+              <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
+                <View style={styles.divider} />
+                
+                {/* Tagline (Splash Screen Only) */}
+                <View style={styles.taglineWrapper}>
+                  <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
+                    Kitchen & Dispatch Operations Suite 🔥
+                  </Animated.Text>
+                </View>
+              </Animated.View>
             </Animated.View>
 
             {/* Fade In & Slide Up Auth Form */}
             {!currentUser && (
-              <Animated.View style={[styles.actionBox, { opacity: authOpacity, transform: [{ translateY: formTranslateY }] }]}>
+              <Animated.View 
+                style={[
+                  styles.actionBox, 
+                  { 
+                    opacity: authOpacity, 
+                    transform: [
+                      { translateY: formTranslateY },
+                      { translateY: keyboardFormY }
+                    ] 
+                  }
+                ]}
+              >
                 {/* Console Header */}
                 <View style={styles.consoleHeader}>
                   <Ionicons name="shield-checkmark" size={normalize(22)} color="#FF6B00" style={{ marginBottom: 4 }} />
