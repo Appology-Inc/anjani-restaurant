@@ -1447,92 +1447,67 @@ export default function App() {
         {/* Crossfading Overlays */}
         <Animated.View style={[styles.overlay, { opacity: splashOpacity, backgroundColor: 'rgba(0, 0, 0, 0.75)' }]} pointerEvents="none" />
         <Animated.View style={[styles.overlay, { opacity: authOpacity, backgroundColor: 'rgba(0, 0, 0, 0.65)' }]} pointerEvents="none" />
+        
+        {/* Splash Brand: absolute centred, visible only during boot, fades out with splash */}
+        <Animated.View
+          style={[styles.brandBox, {
+            position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+            justifyContent: 'center', alignItems: 'center',
+            opacity: splashOpacity, zIndex: 10,
+          }]}
+          pointerEvents="none"
+        >
+          <Text style={styles.title}>ANJANI</Text>
+          <Text style={styles.titleSecond}>RESTAURANT</Text>
+          <AnimatedDeliveryTrack />
+          <View style={styles.taglineWrapper}>
+            <Text style={styles.tagline}>Kitchen & Dispatch Operations Suite 🔥</Text>
+          </View>
+        </Animated.View>
+
         <KeyboardAvoidingView 
           style={{ flex: 1, backgroundColor: 'transparent' }}
-          behavior="padding"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
-          {/* Brand — absolutely centred on screen, slides up on auth transition */}
-          <Animated.View
-            style={[
-              styles.brandBox,
-              {
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                top: 0,
-                bottom: 0,
-                justifyContent: 'center',
-                alignItems: 'center',
-                zIndex: 10,
-                transform: [
-                  { translateY: titleTranslateY },
-                  { translateY: keyboardBrandY },
-                  { scale: keyboardBrandScale },
-                ],
-              },
-            ]}
-            pointerEvents="none"
-          >
-            {/* Cinematic (Two-line) Title */}
-            <Animated.View style={{ opacity: brandCinematicOpacity, alignItems: 'center', width: '100%' }}>
-              <Text style={styles.title}>ANJANI</Text>
-              <Text style={styles.titleSecond}>RESTAURANT</Text>
-            </Animated.View>
-
-            {/* Compact (Single-line) Title */}
-            <Animated.View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', opacity: brandCompactOpacity }} pointerEvents="none">
-              <Text style={styles.compactTitle}>
-                ANJANI <Text style={{ fontWeight: '300' }}>RESTAURANT</Text>
-              </Text>
-            </Animated.View>
-
-            {/* Animation + Tagline (fades out with keyboard) */}
-            <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
-              <AnimatedDeliveryTrack />
-              <View style={styles.taglineWrapper}>
-                <Animated.Text style={[styles.tagline, { opacity: splashOpacity }]}>
-                  Kitchen & Dispatch Operations Suite 🔥
-                </Animated.Text>
-              </View>
-            </Animated.View>
-          </Animated.View>
-
-          {/* Auth Form — scrollable, slides in from below */}
-          <ScrollView 
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: Math.max(insets.bottom + normalize(32), normalize(48)) },
-            ]}
+          {/* Login Screen: in-flow brand + form — KAV lifts both above keyboard */}
+          <ScrollView
+            contentContainerStyle={[styles.scrollContent, {
+              paddingBottom: Math.max(insets.bottom + normalize(24), normalize(36)),
+            }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Fade In & Slide Up Auth Form */}
+            {/* In-flow brand — appears just above the login form */}
             {!currentUser && (
-              <Animated.View 
-                style={[
-                  styles.actionBox, 
-                  { 
-                    opacity: authOpacity, 
-                    transform: [
-                      { translateY: formTranslateY }
-                    ] 
-                  }
-                ]}
+              <Animated.View
+                style={[styles.loginBrand, { opacity: authOpacity, transform: [{ translateY: formTranslateY }] }]}
+                pointerEvents="none"
               >
-                {/* Console Header */}
+                <Text style={styles.title}>ANJANI</Text>
+                <Text style={styles.titleSecond}>RESTAURANT</Text>
+                <AnimatedDeliveryTrack />
+              </Animated.View>
+            )}
+
+            {/* Auth Form */}
+            {!currentUser && (
+              <Animated.View
+                style={[styles.actionBox, {
+                  opacity: authOpacity,
+                  transform: [{ translateY: formTranslateY }],
+                }]}
+              >
                 <View style={styles.consoleHeader}>
                   <Ionicons name="shield-checkmark" size={normalize(22)} color="#FF6B00" style={{ marginBottom: 4 }} />
                   <Text style={styles.consoleTitle}>OWNER MANAGEMENT PORTAL</Text>
                   <Text style={styles.consoleSubtitle}>Authorized Administrative Access Only</Text>
                 </View>
-
-                {/* Form */}
                 <View style={styles.formContainer}>
                   <View style={{ position: 'relative' }}>
                     <View style={styles.inputWrapper}>
                       <Ionicons name="mail-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
-                      <TextInput 
+                      <TextInput
                         style={styles.input}
                         placeholder="Administrative Email"
                         placeholderTextColor="#888"
@@ -1540,54 +1515,34 @@ export default function App() {
                         autoCapitalize="none"
                         value={email}
                         onChangeText={setEmail}
-                        onFocus={() => {
-                          Animated.timing(emailGlow, { toValue: 1, duration: 250, useNativeDriver: true }).start();
-                        }}
-                        onBlur={() => {
-                          Animated.timing(emailGlow, { toValue: 0, duration: 250, useNativeDriver: true }).start();
-                        }}
+                        onFocus={() => Animated.timing(emailGlow, { toValue: 1, duration: 250, useNativeDriver: true }).start()}
+                        onBlur={() => Animated.timing(emailGlow, { toValue: 0, duration: 250, useNativeDriver: true }).start()}
                       />
                     </View>
                     <Animated.View style={[styles.inputWrapperActiveBorder, { opacity: emailGlow }]} pointerEvents="none" />
                   </View>
-
                   <View style={{ position: 'relative' }}>
                     <View style={styles.inputWrapper}>
                       <Ionicons name="lock-closed-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
-                      <TextInput 
+                      <TextInput
                         style={styles.input}
                         placeholder="Security Password"
                         placeholderTextColor="#888"
                         secureTextEntry
                         value={password}
                         onChangeText={setPassword}
-                        onFocus={() => {
-                          Animated.timing(passwordGlow, { toValue: 1, duration: 250, useNativeDriver: true }).start();
-                        }}
-                        onBlur={() => {
-                          Animated.timing(passwordGlow, { toValue: 0, duration: 250, useNativeDriver: true }).start();
-                        }}
+                        onFocus={() => Animated.timing(passwordGlow, { toValue: 1, duration: 250, useNativeDriver: true }).start()}
+                        onBlur={() => Animated.timing(passwordGlow, { toValue: 0, duration: 250, useNativeDriver: true }).start()}
                       />
                     </View>
                     <Animated.View style={[styles.inputWrapperActiveBorder, { opacity: passwordGlow }]} pointerEvents="none" />
                   </View>
-
-                  {error ? (
-                    <Text style={styles.errorText}>{error}</Text>
-                  ) : null}
-
-                  <TouchableOpacity 
-                    style={styles.primaryBtn} 
-                    onPress={handleSignIn}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#FFF" size="small" />
-                    ) : (
-                      <Text style={styles.primaryBtnTxt}>
-                        Secure Sign In
-                      </Text>
-                    )}
+                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                  <TouchableOpacity style={styles.primaryBtn} onPress={handleSignIn} disabled={loading}>
+                    {loading
+                      ? <ActivityIndicator color="#FFF" size="small" />
+                      : <Text style={styles.primaryBtnTxt}>Secure Sign In</Text>
+                    }
                   </TouchableOpacity>
                 </View>
               </Animated.View>
@@ -1753,7 +1708,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'flex-end',
     paddingHorizontal: normalize(20),
-    paddingBottom: normalize(24),
+  },
+  loginBrand: {
+    alignItems: 'center',
+    marginBottom: normalize(12),
+    paddingHorizontal: normalize(20),
   },
   brandBox: {
     alignItems: 'center',
