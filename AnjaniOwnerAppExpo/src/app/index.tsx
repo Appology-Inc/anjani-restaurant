@@ -54,7 +54,7 @@ const CAT_ICONS: Record<string, string> = {
   "Snacks": "🍟"
 };
 
-function AnimatedDeliveryTrackOrbit() {
+function AnimatedDeliveryTrack() {
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -250,7 +250,7 @@ function BackgroundEmbers() {
   );
 }
 
-function AnimatedDeliveryTrack() {
+function AnimatedDeliveryTrackHearth() {
   const breatheAnim = useRef(new Animated.Value(0)).current;
   const rippleAnim = useRef(new Animated.Value(0)).current;
   
