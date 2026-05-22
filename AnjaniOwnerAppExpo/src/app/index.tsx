@@ -16,7 +16,8 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Keyboard
+  Keyboard,
+  SectionList
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +34,25 @@ const SCREEN_WIDTH = SCREEN_W;
 const SCREEN_HEIGHT = SCREEN_H;
 const scale = Math.min(SCREEN_W / 375, 1.2);
 const normalize = (size: number) => Math.round(size * scale);
+
+const CAT_ICONS: Record<string, string> = {
+  "All": "🍽️",
+  "Veg Soups": "🥣",
+  "Non Veg Soups": "🍲",
+  "Salads": "🥗",
+  "Tandoori Starters": "🍢",
+  "Veg Starters": "🥦",
+  "Non Veg Starters": "🍗",
+  "Veg Main Course": "🫕",
+  "Non Veg Main Course": "🍖",
+  "Breads": "🫓",
+  "Rice": "🍚",
+  "Veg Biryani": "🍛",
+  "Non Veg Biryani": "🥘",
+  "Fried Rice": "🥡",
+  "Noodles": "🍜",
+  "Snacks": "🍟"
+};
 
 export default function App() {
   const insets = useSafeAreaInsets();
@@ -586,168 +606,175 @@ export default function App() {
     const categories = ['All', ...MenuCategories];
     
     const filtered = menuItems.filter(item => {
+      if (item.isDeleted) return false;
       const matchesSearch = item.name.toLowerCase().includes(menuSearchQuery.toLowerCase()) ||
                             item.description.toLowerCase().includes(menuSearchQuery.toLowerCase());
       const matchesCategory = menuSelectedCategory === 'All' || item.category === menuSelectedCategory;
       return matchesSearch && matchesCategory;
     });
 
-    // Group filtered items by category
-    const groupedItems: { [category: string]: MenuItem[] } = {};
-    filtered.forEach(item => {
-      if (!groupedItems[item.category]) {
-        groupedItems[item.category] = [];
-      }
-      groupedItems[item.category].push(item);
-    });
+    // Group into sections for SectionList (Zomato/Swiggy style virtualization)
+    const sections = MenuCategories
+      .filter(cat => menuSelectedCategory === "All" || cat === menuSelectedCategory)
+      .map(cat => ({
+        title: cat,
+        data: filtered.filter(i => i.category === cat)
+      }))
+      .filter(section => section.data.length > 0);
 
-    // Determine the active categories list (maintain standard order of MenuCategories)
-    const activeCategories = MenuCategories.filter(cat => groupedItems[cat] && groupedItems[cat].length > 0);
-    // Append any extra categories not present in standard MenuCategories
-    Object.keys(groupedItems).forEach(cat => {
-      if (!activeCategories.includes(cat)) {
-        activeCategories.push(cat);
-      }
-    });
-
-    return (
-      <View style={{ flex: 1, backgroundColor: '#FAF9F6' }}>
-        {/* Search and Filters Header */}
-        <View style={styles.catalogHeader}>
-          <Text style={styles.catalogTitle}>Menu Catalog</Text>
-          <Text style={styles.catalogSubtitle}>Manage names, pricing, and availability</Text>
-          
-          <View style={styles.menuSearchRow}>
-            <Ionicons name="search" size={20} color="#757575" style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.menuSearchInput}
-              placeholder="Search dishes..."
-              placeholderTextColor="#9E9E9E"
-              value={menuSearchQuery}
-              onChangeText={setMenuSearchQuery}
-            />
-            {menuSearchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setMenuSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color="#757575" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Categories Horizontal Scroll */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            style={styles.categoriesScroll}
-            contentContainerStyle={{ paddingRight: 16 }}
-          >
-            {categories.map(cat => {
-              const isActive = cat === menuSelectedCategory;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.catPill, isActive && styles.catPillActive]}
-                  onPress={() => setMenuSelectedCategory(cat)}
-                >
-                  <Text style={[styles.catPillText, isActive && styles.catPillTextActive]}>
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+    const renderHeader = () => (
+      <View style={styles.catalogHeader}>
+        <Text style={styles.catalogTitle}>Menu Catalog</Text>
+        <Text style={styles.catalogSubtitle}>Manage names, pricing, and availability</Text>
+        
+        <View style={styles.menuSearchRow}>
+          <Ionicons name="search" size={20} color="#9A8A72" style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.menuSearchInput}
+            placeholder="Search dishes..."
+            placeholderTextColor="#9A8A72"
+            value={menuSearchQuery}
+            onChangeText={setMenuSearchQuery}
+            autoCorrect={false}
+          />
+          {menuSearchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setMenuSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color="#9A8A72" />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Scrollable list of items grouped by category */}
+        {/* Categories Horizontal Scroll */}
         <ScrollView 
-          style={{ flex: 1, paddingHorizontal: 16 }} 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={styles.categoriesScroll}
+          contentContainerStyle={{ paddingRight: 16 }}
+        >
+          {categories.map(cat => {
+            const isActive = cat === menuSelectedCategory;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.catPill, isActive && styles.catPillActive]}
+                onPress={() => setMenuSelectedCategory(cat)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.catPillText, isActive && styles.catPillTextActive]}>
+                  {CAT_ICONS[cat] || '🍽️'} {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+
+    return (
+      <View style={{ flex: 1, backgroundColor: '#18120A' }}>
+        <SectionList
+          sections={sections}
+          keyExtractor={(item: MenuItem) => item.id}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-        >
-          {filtered.length === 0 ? (
-            <View style={styles.emptyCatalogCard}>
-              <Ionicons name="alert-circle-outline" size={32} color="#9E9E9E" />
-              <Text style={styles.emptyCatalogText}>No dishes found matching search parameters.</Text>
+          stickySectionHeadersEnabled={true}
+          ListHeaderComponent={renderHeader}
+          ListFooterComponent={<View style={{ height: 60 }} />}
+          ListEmptyComponent={
+            <View style={{ paddingHorizontal: 16 }}>
+              <View style={styles.emptyCatalogCard}>
+                <Ionicons name="alert-circle-outline" size={32} color="#9A8A72" />
+                <Text style={styles.emptyCatalogText}>No dishes found matching search parameters.</Text>
+              </View>
             </View>
-          ) : (
-            activeCategories.map(catName => {
-              const categoryItemsList = groupedItems[catName] || [];
-              return (
-                <View key={catName}>
-                  {/* Category Header Bar */}
-                  <View style={styles.catalogCategoryHeader}>
-                    <Text style={styles.catalogCategoryTitle}>{catName.toUpperCase()}</Text>
-                    <View style={styles.catalogCategoryBadge}>
-                      <Text style={styles.catalogCategoryBadgeText}>
-                        {categoryItemsList.length} {categoryItemsList.length === 1 ? 'item' : 'items'}
-                      </Text>
+          }
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={{ backgroundColor: '#18120A', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+              <View style={styles.catalogCategoryHeader}>
+                <Text style={styles.catalogCategoryTitle}>
+                  {CAT_ICONS[title] || '🍽️'} {title.toUpperCase()}
+                </Text>
+                <View style={styles.catalogCategoryBadge}>
+                  <Text style={styles.catalogCategoryBadgeText}>
+                    {filtered.filter(i => i.category === title).length} items
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+          renderItem={({ item }) => {
+            const isSoldOut = soldOutDishIds.includes(item.id) || item.isAvailable === false;
+            return (
+              <View style={{ paddingHorizontal: 16 }}>
+                <View style={styles.catalogItemCard}>
+                  {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.catalogItemImage} />
+                  ) : (
+                    <View style={[styles.catalogItemImage, { backgroundColor: '#2A1F12', borderWidth: 1, borderColor: 'rgba(255,107,0,0.18)' }]} />
+                  )}
+                  
+                  <View style={styles.catalogItemDetails}>
+                    <View style={styles.catalogItemHeaderRow}>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                          <View style={[styles.vegBadgeCustom, { borderColor: item.isVeg ? '#22C55E' : '#EF4444' }]}>
+                            <View style={[styles.vegDotCustom, { backgroundColor: item.isVeg ? '#22C55E' : '#EF4444' }]} />
+                          </View>
+                          <Text style={[styles.vegLabelCustom, { color: item.isVeg ? '#22C55E' : '#EF4444' }]}>
+                            {item.isVeg ? 'VEG' : 'NON-VEG'}
+                          </Text>
+                          <View style={{ width: 1, height: 10, backgroundColor: 'rgba(255,107,0,0.2)', marginHorizontal: 8 }} />
+                          <Ionicons name="star" size={10} color="#FFB300" />
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: '#FFB300', marginLeft: 3 }}>
+                            {(item.rating || 4.5).toFixed(1)}
+                          </Text>
+                        </View>
+                        <Text style={styles.catalogItemName}>{item.name}</Text>
+                      </View>
+                      <Text style={styles.catalogItemPrice}>₹{Math.floor(item.price)}</Text>
+                    </View>
+
+                    <Text style={styles.catalogItemDesc} numberOfLines={2}>
+                      {item.description || 'No description provided.'}
+                    </Text>
+
+                    <View style={styles.catalogItemActionRow}>
+                      {/* Availability Switch */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Switch
+                          value={!isSoldOut}
+                          onValueChange={() => toggleDishAvailability(item.id)}
+                          trackColor={{ false: '#767577', true: 'rgba(255,107,0,0.4)' }}
+                          thumbColor={!isSoldOut ? '#FF6B00' : '#ECEFF1'}
+                          style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                        />
+                        <Text style={[styles.catalogItemStatusText, { color: isSoldOut ? '#EF4444' : '#22C55E' }]}>
+                          {isSoldOut ? 'Unavailable' : 'Available Today'}
+                        </Text>
+                      </View>
+
+                      {/* Edit Button */}
+                      <TouchableOpacity
+                        style={styles.catalogEditBtn}
+                        onPress={() => {
+                          setEditingItem(item);
+                          setEditName(item.name);
+                          setEditDescription(item.description);
+                          setEditPrice(String(item.price));
+                          setEditAvailable(item.isAvailable !== false);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="pencil-sharp" size={10} color="#FF6B00" style={{ marginRight: 4 }} />
+                        <Text style={styles.catalogEditBtnText}>Edit Details</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-
-                  {/* Render items within this category */}
-                  {categoryItemsList.map(item => {
-                    const isSoldOut = soldOutDishIds.includes(item.id) || item.isAvailable === false;
-                    return (
-                      <View key={item.id} style={styles.catalogItemCard}>
-                        <Image source={{ uri: item.imageUrl }} style={styles.catalogItemImage} />
-                        
-                        <View style={styles.catalogItemDetails}>
-                          <View style={styles.catalogItemHeaderRow}>
-                            <View style={{ flex: 1, marginRight: 8 }}>
-                              <View style={styles.vegIndicatorRow}>
-                                <View style={[styles.vegDot, { backgroundColor: item.isVeg ? '#388E3C' : '#D32F2F' }]} />
-                                <Text style={[styles.vegLabel, { color: item.isVeg ? '#388E3C' : '#D32F2F' }]}>
-                                  {item.isVeg ? 'VEG' : 'NON-VEG'}
-                                </Text>
-                              </View>
-                              <Text style={styles.catalogItemName}>{item.name}</Text>
-                            </View>
-                            <Text style={styles.catalogItemPrice}>₹{Math.floor(item.price)}</Text>
-                          </View>
-
-                          <Text style={styles.catalogItemDesc} numberOfLines={2}>
-                            {item.description || 'No description provided.'}
-                          </Text>
-
-                          <View style={styles.catalogItemActionRow}>
-                            {/* Availability Switch */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Switch
-                                value={!isSoldOut}
-                                onValueChange={() => toggleDishAvailability(item.id)}
-                                trackColor={{ false: '#767577', true: '#FFCC80' }}
-                                thumbColor={!isSoldOut ? '#E65100' : '#ECEFF1'}
-                                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                              />
-                              <Text style={[styles.catalogItemStatusText, { color: isSoldOut ? '#C62828' : '#2E7D32' }]}>
-                                {isSoldOut ? 'Unavailable' : 'Available Today'}
-                              </Text>
-                            </View>
-
-                            {/* Edit Button */}
-                            <TouchableOpacity
-                              style={styles.catalogEditBtn}
-                              onPress={() => {
-                                setEditingItem(item);
-                                setEditName(item.name);
-                                setEditDescription(item.description);
-                                setEditPrice(String(item.price));
-                                setEditAvailable(item.isAvailable !== false);
-                              }}
-                            >
-                              <Ionicons name="pencil-sharp" size={12} color="#E65100" style={{ marginRight: 4 }} />
-                              <Text style={styles.catalogEditBtnText}>Edit Details</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
                 </View>
-              );
-            })
-          )}
-          <View style={{ height: 40 }} />
-        </ScrollView>
+              </View>
+            );
+          }}
+        />
       </View>
     );
   };
@@ -1800,6 +1827,25 @@ const styles = StyleSheet.create({
   vegLabel: {
     fontSize: 8,
     fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  vegBadgeCustom: {
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  vegDotCustom: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  vegLabelCustom: {
+    fontSize: 9,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
   catalogItemName: {
