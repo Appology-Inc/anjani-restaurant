@@ -59,7 +59,7 @@ function AnimatedDeliveryTrack() {
   const [iconPhase, setIconPhase] = useState<'food' | 'rider' | 'home'>('food');
 
   useEffect(() => {
-    const duration = 3000;
+    const duration = 3200; // Muted, premium glide speed
     
     // Smooth infinite horizontal travel loop using native driver (smooth 60fps)
     const runAnim = () => {
@@ -102,11 +102,17 @@ function AnimatedDeliveryTrack() {
     };
   }, []);
 
-  const trackWidth = normalize(180);
-  const containerSize = normalize(26);
+  const trackWidth = normalize(120);
+  const containerSize = normalize(18);
   const translateX = travelAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, trackWidth - containerSize],
+  });
+
+  // Soft fade in at start and fade out at destination to look holographic
+  const iconOpacity = travelAnim.interpolate({
+    inputRange: [0, 0.15, 0.85, 1],
+    outputRange: [0, 1, 1, 0],
   });
 
   const getIconName = () => {
@@ -122,24 +128,22 @@ function AnimatedDeliveryTrack() {
 
   return (
     <View style={styles.trackContainer}>
-      {/* Background Track Road */}
+      {/* Sleek Minimal Track Line */}
       <View style={styles.trackRoad} />
       
-      {/* Dashed Road Lanes */}
-      <View style={styles.trackLane} />
-
-      {/* Traveling Animated Icon Container */}
+      {/* Gliding Minimal Icon (Dematerializes at edges) */}
       <Animated.View 
         style={[
           styles.travelingIcon, 
           { 
+            opacity: iconOpacity,
             transform: [
               { translateX }
             ] 
           }
         ]}
       >
-        <Ionicons name={getIconName() as any} size={normalize(14)} color="#FF6D00" />
+        <Ionicons name={getIconName() as any} size={normalize(13)} color="#FF6D00" />
       </Animated.View>
     </View>
   );
@@ -1365,46 +1369,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   trackContainer: {
-    width: normalize(180),
-    height: normalize(26),
+    width: normalize(120),
+    height: normalize(20),
     justifyContent: 'center',
-    marginVertical: normalize(14),
+    marginVertical: normalize(16),
     position: 'relative',
     alignItems: 'flex-start',
   },
   trackRoad: {
-    height: 4,
-    backgroundColor: 'rgba(255, 107, 0, 0.12)',
-    borderRadius: 2,
+    height: 1.5,
+    backgroundColor: 'rgba(255, 107, 0, 0.18)',
+    borderRadius: 1,
     position: 'absolute',
     left: 0,
     right: 0,
   },
-  trackLane: {
-    height: 1,
-    backgroundColor: 'rgba(255, 107, 0, 0.3)',
-    position: 'absolute',
-    left: normalize(4),
-    right: normalize(4),
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    borderColor: '#FF6D00',
-    opacity: 0.5,
-  },
   travelingIcon: {
-    width: normalize(26),
-    height: normalize(26),
-    borderRadius: normalize(13),
-    backgroundColor: '#0D0A06',
-    borderWidth: 1,
-    borderColor: '#FF6D00',
+    width: normalize(18),
+    height: normalize(18),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF6D00',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-    elevation: 4,
     position: 'absolute',
     left: 0,
   },
