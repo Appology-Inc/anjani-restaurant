@@ -721,12 +721,16 @@ export default function RiderApp() {
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Log Out', style: 'destructive', onPress: async () => {
                   await logout();
-                  // Reset animation values for clean slide-in next time
-                  splashOpacity.setValue(1);
-                  authOpacity.setValue(0);
-                  titleTranslateY.setValue(SCREEN_H * 0.23);
-                  formTranslateY.setValue(45);
-                  setShowSplash(true);
+                  // Reset credentials input states
+                  setEmail('');
+                  setPassword('');
+                  setError('');
+                  // Transition directly to the active login screen cleanly
+                  splashOpacity.setValue(0);
+                  authOpacity.setValue(1);
+                  titleTranslateY.setValue(0);
+                  formTranslateY.setValue(0);
+                  setShowSplash(false);
                 }}
               ]);
             }}

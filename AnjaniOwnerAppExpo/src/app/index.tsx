@@ -54,7 +54,7 @@ export default function App() {
   const imageTranslateX = useRef(new Animated.Value(0)).current;
   const splashOpacity = useRef(new Animated.Value(1)).current;
   const authOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(0)).current;
+  const titleTranslateY = useRef(new Animated.Value(SCREEN_H * 0.24)).current;
   const formTranslateY = useRef(new Animated.Value(45)).current;
   const keyboardAnim = useRef(new Animated.Value(0)).current;
 
@@ -124,7 +124,7 @@ export default function App() {
   });
   const keyboardFormY = keyboardAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -normalize(25)],
+    outputRange: [0, -normalize(90)],
   });
 
   useEffect(() => {
@@ -161,7 +161,7 @@ export default function App() {
           Animated.parallel([
             Animated.timing(splashOpacity, { toValue: 0, duration: 2000, useNativeDriver: true }),
             Animated.timing(authOpacity, { toValue: 1, duration: 2000, useNativeDriver: true }),
-            Animated.timing(titleTranslateY, { toValue: -normalize(60), duration: 1800, useNativeDriver: true }),
+            Animated.timing(titleTranslateY, { toValue: -normalize(55), duration: 1800, useNativeDriver: true }),
             Animated.timing(formTranslateY, { toValue: 0, duration: 1800, useNativeDriver: true }),
           ]).start();
         }, 2500);
@@ -945,7 +945,7 @@ export default function App() {
               ]}
             >
               <Text style={styles.title}>ANJANI</Text>
-              <Text style={styles.titleSecond}>KITCHEN OWNER</Text>
+              <Text style={styles.titleSecond}>RESTAURANT</Text>
               
               {/* Animated Divider & Tagline Wrapper which fades out on keyboard */}
               <Animated.View style={{ opacity: keyboardBrandOpacity, alignItems: 'center', width: '100%', transform: [{ scaleY: keyboardBrandOpacity }] }}>
@@ -1045,7 +1045,7 @@ export default function App() {
                 <View style={styles.gModalHandle} />
                 <Ionicons name="logo-google" size={normalize(28)} color="#0D0A06" style={{ alignSelf: 'center', marginBottom: normalize(14) }} />
                 <Text style={styles.gModalTitle}>Choose an account</Text>
-                <Text style={styles.gModalSub}>to continue to Anjani Kitchen</Text>
+                <Text style={styles.gModalSub}>to continue to Anjani Restaurant</Text>
 
                 <View style={styles.gAccountList}>
                   <TouchableOpacity style={styles.gAccountRow} onPress={() => handleGoogleLogin('owner.anjani@gmail.com', 'Anjani Restaurant Owner')}>
@@ -1096,7 +1096,7 @@ export default function App() {
             <MaterialCommunityIcons name="chef-hat" size={18} color="#FF6B00" />
           </View>
           <View>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: '#F5ECD7' }}>Anjani Kitchen</Text>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: '#F5ECD7' }}>Anjani Restaurant</Text>
             <Text style={{ fontSize: 11, color: '#9A8A72' }}>Owner Operations Suite</Text>
           </View>
         </View>
@@ -1112,12 +1112,16 @@ export default function App() {
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Log Out', style: 'destructive', onPress: async () => {
                   await logout();
-                  // Reset animation values for clean slide-in next time
-                  splashOpacity.setValue(1);
-                  authOpacity.setValue(0);
-                  titleTranslateY.setValue(0);
-                  formTranslateY.setValue(45);
-                  setShowSplash(true);
+                  // Reset credentials input states
+                  setEmail('');
+                  setPassword('');
+                  setError('');
+                  // Transition directly to the active login screen cleanly
+                  splashOpacity.setValue(0);
+                  authOpacity.setValue(1);
+                  titleTranslateY.setValue(-normalize(55));
+                  formTranslateY.setValue(0);
+                  setShowSplash(false);
                 }}
               ]);
             }}
@@ -1201,7 +1205,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   titleSecond: {
-    fontSize: normalize(20),
+    fontSize: normalize(30),
     fontWeight: '300',
     color: '#FFF',
     letterSpacing: normalize(4),
