@@ -1503,8 +1503,7 @@ export default function App() {
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingTop: Math.max(insets.top, normalize(20)),
-                paddingBottom: Math.max(insets.bottom, normalize(20)),
+                paddingBottom: Math.max(insets.bottom + normalize(32), normalize(48)),
               }
             ]}
             showsVerticalScrollIndicator={false}
@@ -1755,9 +1754,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    paddingTop: SCREEN_H * 0.52,
     paddingHorizontal: normalize(20),
-    paddingBottom: normalize(8),
   },
   brandBox: {
     alignItems: 'center',
