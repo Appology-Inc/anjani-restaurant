@@ -57,7 +57,7 @@ export default function App() {
   const formTranslateY = useRef(new Animated.Value(45)).current;
 
   // --- Auth Form States ---
-  const [activeAuthTab, setActiveAuthTab] = useState<'signin' | 'signup'>('signup');
+  const [activeAuthTab, setActiveAuthTab] = useState<'signin' | 'signup'>('signin');
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -189,6 +189,13 @@ export default function App() {
       setError('Please fill in all fields');
       return;
     }
+
+    const emailLower = email.trim().toLowerCase();
+    if (emailLower !== 'owner@anjani.com' || password.trim() !== 'Owner123') {
+      setError('Access Denied: Only registered owners can access this app.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -915,62 +922,20 @@ export default function App() {
             {/* Fade In & Slide Up Auth Form */}
             {!currentUser && (
               <Animated.View style={[styles.actionBox, { opacity: authOpacity, transform: [{ translateY: formTranslateY }] }]}>
-                {/* Tabs */}
-                <View style={styles.tabContainerAuth}>
-                  <TouchableOpacity 
-                    style={[styles.tabBtn, activeAuthTab === 'signup' && styles.tabBtnActive]} 
-                    onPress={() => {
-                      setActiveAuthTab('signup');
-                      setError('');
-                    }}
-                  >
-                    <Text style={[styles.tabTxt, activeAuthTab === 'signup' && styles.tabTxtActive]}>Sign Up</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.tabBtn, activeAuthTab === 'signin' && styles.tabBtnActive]} 
-                    onPress={() => {
-                      setActiveAuthTab('signin');
-                      setError('');
-                    }}
-                  >
-                    <Text style={[styles.tabTxt, activeAuthTab === 'signin' && styles.tabTxtActive]}>Sign In</Text>
-                  </TouchableOpacity>
+                {/* Console Header */}
+                <View style={styles.consoleHeader}>
+                  <Ionicons name="shield-checkmark" size={normalize(22)} color="#FF6B00" style={{ marginBottom: 4 }} />
+                  <Text style={styles.consoleTitle}>OWNER MANAGEMENT PORTAL</Text>
+                  <Text style={styles.consoleSubtitle}>Authorized Administrative Access Only</Text>
                 </View>
 
                 {/* Form */}
                 <View style={styles.formContainer}>
-                  {activeAuthTab === 'signup' && (
-                    <View style={styles.inputWrapper}>
-                      <Ionicons name="person-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
-                      <TextInput 
-                        style={styles.input}
-                        placeholder="Full Name"
-                        placeholderTextColor="#888"
-                        value={name}
-                        onChangeText={setName}
-                      />
-                    </View>
-                  )}
-
-                  {activeAuthTab === 'signup' && (
-                    <View style={styles.inputWrapper}>
-                      <Ionicons name="call-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
-                      <TextInput 
-                        style={styles.input}
-                        placeholder="Phone Number"
-                        placeholderTextColor="#888"
-                        keyboardType="phone-pad"
-                        value={phone}
-                        onChangeText={setPhone}
-                      />
-                    </View>
-                  )}
-
                   <View style={styles.inputWrapper}>
                     <Ionicons name="mail-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
                     <TextInput 
                       style={styles.input}
-                      placeholder="Email Address"
+                      placeholder="Administrative Email"
                       placeholderTextColor="#888"
                       keyboardType="email-address"
                       autoCapitalize="none"
@@ -983,7 +948,7 @@ export default function App() {
                     <Ionicons name="lock-closed-outline" size={normalize(18)} color="#AAA" style={styles.inputIcon} />
                     <TextInput 
                       style={styles.input}
-                      placeholder="Password"
+                      placeholder="Security Password"
                       placeholderTextColor="#888"
                       secureTextEntry
                       value={password}
@@ -997,31 +962,16 @@ export default function App() {
 
                   <TouchableOpacity 
                     style={styles.primaryBtn} 
-                    onPress={activeAuthTab === 'signin' ? handleSignIn : handleSignUp}
+                    onPress={handleSignIn}
                     disabled={loading}
                   >
                     {loading ? (
                       <ActivityIndicator color="#FFF" size="small" />
                     ) : (
                       <Text style={styles.primaryBtnTxt}>
-                        {activeAuthTab === 'signin' ? 'Sign In' : 'Sign Up'}
+                        Secure Sign In
                       </Text>
                     )}
-                  </TouchableOpacity>
-
-                  <View style={styles.orRow}>
-                    <View style={styles.orLine} />
-                    <Text style={styles.orTxt}>OR</Text>
-                    <View style={styles.orLine} />
-                  </View>
-
-                  <TouchableOpacity 
-                    style={styles.googleBtn} 
-                    onPress={() => setShowGoogleModal(true)}
-                    disabled={loading}
-                  >
-                    <Ionicons name="logo-google" size={normalize(18)} color="#FFF" />
-                    <Text style={styles.googleBtnTxt}>Continue with Google</Text>
                   </TouchableOpacity>
                 </View>
               </Animated.View>
@@ -1243,29 +1193,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  tabContainerAuth: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: normalize(14),
-    padding: normalize(4),
-    marginBottom: normalize(16),
-  },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: normalize(10),
+  consoleHeader: {
     alignItems: 'center',
-    borderRadius: normalize(10),
+    marginBottom: normalize(20),
+    paddingTop: normalize(6),
   },
-  tabBtnActive: {
-    backgroundColor: '#FF6D00',
-  },
-  tabTxt: {
-    color: '#AAA',
+  consoleTitle: {
     fontSize: normalize(13),
-    fontWeight: '600',
+    fontWeight: '800',
+    color: '#FF6B00',
+    letterSpacing: normalize(1.5),
+    textAlign: 'center',
   },
-  tabTxtActive: {
-    color: '#FFF',
+  consoleSubtitle: {
+    fontSize: normalize(11),
+    fontWeight: '500',
+    color: '#9A8A72',
+    marginTop: normalize(2),
+    textAlign: 'center',
   },
   formContainer: {
     gap: normalize(14),
