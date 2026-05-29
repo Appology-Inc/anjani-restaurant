@@ -124,9 +124,11 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
       try {
         const coords = [
           { latitude: order.restaurantLat, longitude: order.restaurantLng },
-          { latitude: order.userLat, longitude: order.userLng },
-          { latitude: order.riderLat, longitude: order.riderLng }
+          { latitude: order.userLat, longitude: order.userLng }
         ];
+        if (order.riderLat !== undefined && order.riderLng !== undefined) {
+          coords.push({ latitude: order.riderLat, longitude: order.riderLng });
+        }
         mapRef.current.fitToCoordinates(coords, {
           edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
           animated: true
@@ -183,7 +185,9 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
     const travelTime = Math.max(1, Math.round(dist * 3.5));
     timeText = `${15 + travelTime} mins`; // 15 min prep + travel
   } else {
-    dist = getDistance(order.riderLat, order.riderLng, order.userLat, order.userLng);
+    const rLat = order.riderLat ?? order.restaurantLat;
+    const rLng = order.riderLng ?? order.restaurantLng;
+    dist = getDistance(rLat, rLng, order.userLat, order.userLng);
     distanceText = dist < 0.1 ? 'Arrived!' : `${dist.toFixed(1)} km away`;
     timeText = dist < 0.1 ? 'Now' : `${Math.max(1, Math.round(dist * 3.5))} mins`;
   }
@@ -279,7 +283,7 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
             markers={[
               { lat: order.restaurantLat, lng: order.restaurantLng, type: 'restaurant' },
               { lat: order.userLat, lng: order.userLng, type: 'customer' },
-              ...(order.status === 'OUT_FOR_DELIVERY' || order.status === 'DELIVERED' 
+              ...((order.status === 'OUT_FOR_DELIVERY' || order.status === 'DELIVERED') && order.riderLat !== undefined && order.riderLng !== undefined 
                   ? [{ lat: order.riderLat, lng: order.riderLng, type: 'rider' }] 
                   : [])
             ]}
@@ -327,7 +331,7 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
         <View style={styles.fallbackStats}>
           <Ionicons name="compass-outline" size={15} color={Colors.primary} />
           <Text style={styles.fallbackStatsTxt}>
-            GPS Rider Coordinates: <Text style={styles.statsCoord}>{order.riderLat.toFixed(5)}, {order.riderLng.toFixed(5)}</Text>
+            GPS Rider Coordinates: <Text style={styles.statsCoord}>{order.riderLat?.toFixed(5) || 'N/A'}, {order.riderLng?.toFixed(5) || 'N/A'}</Text>
           </Text>
         </View>
       </View>
