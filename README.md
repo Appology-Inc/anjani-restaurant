@@ -3,6 +3,11 @@
   
   <h1 align="center">Anjani Restaurant Ecosystem 🍔🛵</h1>
 
+  <!-- 
+    Pro-Tip: Upload a sleek 1920x400 banner image of your app to your repo and replace this src! 
+  -->
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=FF6B00&height=200&section=header&text=Anjani%20Ecosystem&fontSize=50&fontColor=ffffff" width="100%" alt="Header Banner" />
+
   <p align="center">
     <strong>A next-generation, cinematic restaurant ordering, delivery, and management platform.</strong>
     <br />
@@ -24,13 +29,11 @@
 ## 📖 Table of Contents
 - [Overview](#-overview)
 - [System Architecture](#-system-architecture)
-- [The Applications](#-the-applications)
+- [The Applications Showcase](#-the-applications-showcase)
 - [Core Features](#-core-features)
 - [Technology Stack](#-technology-stack)
 - [Getting Started](#-getting-started)
-- [Documentation Standards](#-documentation-standards)
 - [Contributing](#-contributing)
-- [License](#-license)
 
 ---
 
@@ -76,29 +79,50 @@ graph TD
 
 ---
 
-## 📱 The Applications
+## 📱 The Applications Showcase
 
-This repository is structured as a monorepo containing four massive pillars:
+<table align="center" width="100%">
+  <tr>
+    <td align="center" width="33%">
+      <h3>🍽 Customer App</h3>
+      <p><i>Cinematic Ordering Experience</i></p>
+    </td>
+    <td align="center" width="33%">
+      <h3>🛵 Rider App</h3>
+      <p><i>Live GPS Delivery Portal</i></p>
+    </td>
+    <td align="center" width="33%">
+      <h3>📊 Owner Dashboard</h3>
+      <p><i>Mission Control Center</i></p>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <img src="https://raw.githubusercontent.com/Appology-Inc/anjani-restaurant/main/Anjani%20Restaurant/assets/images/splash-icon.png" width="120" alt="Customer Icon" />
+      <br /><br />
+      <p>Users can browse dynamic menus, checkout securely via Razorpay, and track their delivery rider's GPS location live on a map.</p>
+      <b>Tech:</b> Expo & React Native Web
+    </td>
+    <td align="center" valign="top">
+      <img src="https://raw.githubusercontent.com/Appology-Inc/anjani-restaurant/main/Anjani%20Delivery%20Partner/assets/images/splash-icon.png" width="120" alt="Rider Icon" />
+      <br /><br />
+      <p>Riders view assigned orders and broadcast their high-accuracy GPS coordinates in the background directly to the customer.</p>
+      <b>Tech:</b> Expo & React Native Web
+    </td>
+    <td align="center" valign="top">
+      <img src="https://raw.githubusercontent.com/Appology-Inc/anjani-restaurant/main/Anjani%20Owner%20Dashboard/src/assets/hero.png" width="200" alt="Dashboard Icon" />
+      <br /><br />
+      <p>Drag-and-drop Kanban board for order states, real-time Chart.js analytics, and live menu inventory toggling.</p>
+      <b>Tech:</b> React 18 & Vite (TypeScript)
+    </td>
+  </tr>
+</table>
 
-### 1. 🍽 Customer App (`/Anjani Restaurant`)
-A stunning, cinematic web application built on **Expo & React Native Web**. 
-- **Experience**: Cinematic splash screens, smooth animations, and a dark-themed, glassmorphic UI.
-- **Functionality**: Users can browse dynamic menus, add items to a persistent cart, checkout securely via Razorpay, and track their delivery rider's GPS location live on a map.
-
-### 2. 🛵 Rider App (`/Anjani Delivery Partner`)
-A dedicated portal specifically engineered for delivery drivers.
-- **Experience**: High-contrast, easy-to-read UI optimized for outdoor visibility.
-- **Functionality**: Riders log in securely, view orders assigned to them, and broadcast their high-accuracy GPS coordinates in the background directly to the customer.
-
-### 3. 📊 Owner Dashboard (`/Anjani Owner Dashboard`)
-The mission control center for the restaurant owner. Built for desktop web using **Vite & React (TypeScript)**.
-- **Experience**: A sleek, professional admin interface.
-- **Functionality**: Drag-and-drop Kanban board to manage order states (Incoming -> Preparing -> Ready -> Out), real-time Chart.js analytics (Revenue, Top Items, Peak Hours), and live menu inventory toggling.
-
-### 4. 🛡 Razorpay Backend Server (`/Anjani Razorpay Server`)
-The secure vault handling financial transactions.
-- **Experience**: Invisible, lightning-fast Node.js execution.
-- **Functionality**: Generates secure Razorpay Order IDs, intercepts webhooks from the bank, mathematically verifies HMAC SHA256 signatures, and securely writes successful payments to Firestore using the Firebase Admin SDK.
+<details>
+<summary><b>🛡 Click to view Backend Details (Razorpay Server)</b></summary>
+<br>
+The secure vault handling financial transactions. It runs invisible, lightning-fast Node.js execution to generate secure Razorpay Order IDs, intercept webhooks from the bank, mathematically verify HMAC SHA256 signatures, and securely write successful payments to Firestore.
+</details>
 
 ---
 
