@@ -61,9 +61,9 @@ export const verifyRazorpayPayment = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('unauthenticated', 'User must be logged in to verify payment.');
   }
 
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = data;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, firestore_order_id } = data;
 
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !firestore_order_id) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing payment verification details.');
   }
 
@@ -78,8 +78,39 @@ export const verifyRazorpayPayment = functions.https.onCall(async (data, context
     const isValid = expectedSignature === razorpay_signature;
 
     if (isValid) {
-      // Payment is verified. The frontend will now proceed to finalize the order in Firestore.
-      return { success: true };
+      // Payment signature is valid. Now verify the amount and update Firestore securely.
+      const db = admin.firestore();
+      const orderRef = db.collection('orders').doc(firestore_order_id);
+      const orderDoc = await orderRef.get();
+      
+      if (!orderDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'Order not found in database.');
+      }
+      
+      const orderData = orderDoc.data();
+      
+      // Ownership validation
+      if (orderData?.customerUid !== context.auth.uid) {
+        throw new functions.https.HttpsError('permission-denied', 'You do not have permission to verify this order.');
+      }
+      
+      const firestoreAmountInPaise = Math.round(parseFloat(orderData?.totalAmount || '0') * 100);
+      const rzpOrder = await razorpayInstance.orders.fetch(razorpay_order_id);
+      
+      if (rzpOrder.amount !== firestoreAmountInPaise) {
+        console.error(`Amount mismatch. Razorpay: ${rzpOrder.amount}, Firestore: ${firestoreAmountInPaise}`);
+        throw new functions.https.HttpsError('invalid-argument', 'Payment amount mismatch. Potential fraud detected.');
+      }
+      
+      await orderRef.update({
+         status: 'PLACED',
+         paymentStatus: 'PAID',
+         razorpayPaymentId: razorpay_payment_id,
+         razorpayOrderId: razorpay_order_id,
+         updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      return { success: true, message: "Payment verified securely." };
     } else {
       throw new functions.https.HttpsError('permission-denied', 'Invalid payment signature.');
     }

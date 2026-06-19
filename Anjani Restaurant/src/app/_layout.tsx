@@ -53,6 +53,9 @@ import SplashScreenUI from '../components/SplashScreenUI';
 import { View } from 'react-native';
 import React from 'react';
 
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { NetworkStatus } from '../components/NetworkStatus';
+
 /**
  * RootLayout Component
  * 
@@ -82,39 +85,51 @@ export default function RootLayout() {
         'background: #111; color: #FF6B00; font-size: 16px; font-weight: bold; border-radius: 4px; padding: 4px 8px;',
         'color: #888; font-size: 12px; font-style: italic;'
       );
+    } else {
+      // Wire up Crashlytics for mobile resilience
+      try {
+        const crashlytics = require('@react-native-firebase/crashlytics').default;
+        crashlytics().log('App RootLayout mounted.');
+      } catch(e) {
+        console.log('Crashlytics not available in this environment');
+      }
     }
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.dark }}>
-      <SafeAreaProvider>
-        <StatusBar style="light" backgroundColor={Colors.dark} />
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.dark }}>
+        <SafeAreaProvider>
+          <StatusBar style="light" backgroundColor={Colors.dark} />
+          
+          <NetworkStatus />
 
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: Colors.surface },
-            animation: 'fade',
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="auth" options={{ headerShown: false, animation: 'fade' }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen 
-            name="checkout" 
-            options={{ 
-              presentation: 'modal', 
-              animation: 'slide_from_bottom',
-            }} 
-          />
-          <Stack.Screen 
-            name="tracking" 
-            options={{ 
-              animation: 'slide_from_right',
-            }} 
-          />
-        </Stack>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: Colors.surface },
+              animation: 'fade',
+            }}
+          >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="auth" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen 
+              name="checkout" 
+              options={{ 
+                presentation: 'modal', 
+                animation: 'slide_from_bottom',
+              }} 
+            />
+            <Stack.Screen 
+              name="tracking" 
+              options={{ 
+                animation: 'slide_from_right',
+              }} 
+            />
+          </Stack>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
