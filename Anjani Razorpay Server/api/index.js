@@ -114,22 +114,47 @@ app.post('/api/verifyPayment', async (req, res) => {
 
     // Compare the expected signature with the one received from Razorpay
     if (expectedSignature === razorpay_signature) {
-      // Payment is completely valid and authentic
+      // Payment signature is valid, but we must verify the amount to prevent spoofing
       
-      // Update the database securely from the backend
-      // This prevents clients from spoofing payment success directly in Firestore
-      if (firestore_order_id && admin.apps.length > 0) {
-         const db = admin.firestore();
-         await db.collection('orders').doc(firestore_order_id).update({
-            status: 'PLACED',
-            paymentStatus: 'PAID',
-            razorpayPaymentId: razorpay_payment_id,
-            razorpayOrderId: razorpay_order_id,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-         });
-      }
+      try {
+        if (firestore_order_id && admin.apps.length > 0) {
+           const db = admin.firestore();
+           const orderRef = db.collection('orders').doc(firestore_order_id);
+           const orderDoc = await orderRef.get();
+           
+           if (!orderDoc.exists) {
+              return res.status(404).json({ success: false, error: "Order not found in database." });
+           }
+           
+           const orderData = orderDoc.data();
+           
+           // Convert Firestore amount to paise to match Razorpay
+           const firestoreAmountInPaise = Math.round(parseFloat(orderData.totalAmount) * 100);
+           
+           // Fetch the order details from Razorpay to verify the amount
+           const rzpOrder = await razorpay.orders.fetch(razorpay_order_id);
+           
+           // Strict amount verification
+           if (rzpOrder.amount !== firestoreAmountInPaise) {
+              console.error(`Amount mismatch! Razorpay: ${rzpOrder.amount}, Firestore: ${firestoreAmountInPaise}`);
+              return res.status(400).json({ success: false, error: "Payment amount does not match order total. Potential spoofing detected." });
+           }
+           
+           // Update the database securely from the backend ONLY if amounts match
+           await orderRef.update({
+              status: 'PLACED',
+              paymentStatus: 'PAID',
+              razorpayPaymentId: razorpay_payment_id,
+              razorpayOrderId: razorpay_order_id,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+           });
+        }
 
-      res.status(200).json({ success: true, message: "Payment verified and order updated" });
+        res.status(200).json({ success: true, message: "Payment verified securely and order updated" });
+      } catch (err) {
+        console.error("Verification logic error:", err);
+        return res.status(500).json({ success: false, error: "Failed to process verified payment." });
+      }
     } else {
       res.status(400).json({ success: false, error: "Invalid signature. Potential fraud attempt." });
     }

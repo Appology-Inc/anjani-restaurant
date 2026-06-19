@@ -26,9 +26,12 @@ service cloud.firestore {
     }
 
     // --- Users Collection ---
-    // Users can only read/write their own profile document
+    // Users can only read their own profile document
+    // Users can create/update their profile but cannot escalate their privileges
     match /users/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId && (!request.resource.data.keys().hasAll(['role']) || request.resource.data.role == 'customer');
+      allow update: if isAuthenticated() && request.auth.uid == userId && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
     }
 
     // --- Menu Collection ---
@@ -48,7 +51,8 @@ service cloud.firestore {
     // --- Orders Collection ---
     // Authenticated users can create orders if they set their own customerUid
     // Users can read their own orders; owners and riders can read all orders
-    // Only authenticated users can update orders (owner changes status, rider updates position)
+    // Only owners and riders can arbitrarily update orders. 
+    // Customers can only update their own orders without modifying critical fields.
     match /orders/{orderId} {
       allow create: if isAuthenticated() && request.resource.data.customerUid == request.auth.uid;
       allow read: if isAuthenticated() && (
@@ -56,7 +60,11 @@ service cloud.firestore {
         isOwner() ||
         isRider()
       );
-      allow update: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        isOwner() || 
+        isRider() || 
+        (resource.data.customerUid == request.auth.uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalAmount', 'paymentStatus', 'status', 'items']))
+      );
       allow delete: if isOwner();
     }
     
