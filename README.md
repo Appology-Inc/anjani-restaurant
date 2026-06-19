@@ -219,6 +219,20 @@ Follow these steps to run the entire ecosystem on your local machine.
 
 ---
 
+## 🛣️ Project Roadmap
+
+We are constantly pushing the limits of what a restaurant application can do. Here is what is coming next:
+
+- [x] **Real-Time Kanban & Map Tracking**
+- [x] **Hardware Permission Integration** (Location & Notifications)
+- [ ] **🤖 AI Ordering Assistant**: Gemini-powered chatbot for intelligent food recommendations.
+- [ ] **🗺️ Turn-by-Turn Navigation**: Mapbox integration for the Rider app.
+- [ ] **📈 AI Demand Forecasting**: Predicting inventory needs using historical Firebase data.
+- [ ] **📲 Native Mobile Launch**: Compiling iOS (.ipa) and Android (.apk) builds for the App Stores.
+- [ ] **🧑‍🍳 Kitchen Display System (KDS)**: Dedicated iPad app for chefs.
+
+---
+
 ## 📝 Documentation Standards
 
 This repository adheres to incredibly strict documentation standards to remain 100% "Open-Source Ready".
@@ -228,18 +242,26 @@ This repository adheres to incredibly strict documentation standards to remain 1
 
 ---
 
-## 🤝 Contributing
-We welcome contributions from the community! If you are interested in making this restaurant ecosystem even more robust:
-1. Fork the Project.
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
-3. Ensure your code matches our strict documentation and commenting guidelines.
-4. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
-5. Push to the Branch (`git push origin feature/AmazingFeature`).
-6. Open a Pull Request.
+## 🤝 Contributing & Contributors
+
+We welcome contributions from the community! If you are interested in making this restaurant ecosystem even more robust, please fork the project and submit a PR.
+
+<div align="center">
+  <h3>Thanks to our incredible contributors!</h3>
+  <a href="https://github.com/Appology-Inc/anjani-restaurant/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=Appology-Inc/anjani-restaurant" alt="Contributors" />
+  </a>
+</div>
 
 ---
 
 <div align="center">
+  <img src="https://img.shields.io/badge/Appology%20Inc-Innovating_the_Web-FF6B00?style=for-the-badge&logo=appveyor" alt="Appology Inc Footer" />
+  <br/><br/>
+  <a href="#"><img src="https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="Twitter" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Support" /></a>
+  <br/><br/>
   <p>Engineered with ❤️ by <strong>Appology Inc.</strong></p>
   <p><i>Building the future of the web.</i></p>
 </div>
