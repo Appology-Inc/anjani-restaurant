@@ -1,17 +1,15 @@
 <div align="center">
-  <img src="https://img.shields.io/badge/Appology%20Inc-Ecosystem-FF6B00?style=for-the-badge&logo=appveyor" alt="Appology Inc" />
-  
-  <h1 align="center">Anjani Restaurant Ecosystem 🍔🛵</h1>
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=FF6B00&height=200&section=header&text=Anjani%20Ecosystem&fontSize=60&fontColor=ffffff&animation=fadeIn" width="100%" alt="Header Banner" />
 
-  <!-- 
-    Pro-Tip: Upload a sleek 1920x400 banner image of your app to your repo and replace this src! 
-  -->
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=FF6B00&height=200&section=header&text=Anjani%20Ecosystem&fontSize=50&fontColor=ffffff" width="100%" alt="Header Banner" />
+  <a href="https://github.com/Appology-Inc">
+    <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=700&size=24&duration=3000&pause=1000&color=FF6B00&center=true&vCenter=true&width=600&lines=A+Cinematic+Ordering+Experience.;Real-Time+GPS+Rider+Tracking.;Mission-Control+Owner+Dashboard.;Engineered+for+Scale." alt="Typing SVG" />
+  </a>
 
   <p align="center">
-    <strong>A next-generation, cinematic restaurant ordering, delivery, and management platform.</strong>
-    <br />
-    Engineered for scale, speed, and real-time operations.
+    <img src="https://img.shields.io/github/repo-size/Appology-Inc/anjani-restaurant?style=for-the-badge&color=20232A" alt="Repo Size" />
+    <img src="https://img.shields.io/github/last-commit/Appology-Inc/anjani-restaurant?style=for-the-badge&color=1B1F23" alt="Last Commit" />
+    <img src="https://img.shields.io/github/languages/count/Appology-Inc/anjani-restaurant?style=for-the-badge&color=B73BFE" alt="Language Count" />
+    <img src="https://img.shields.io/badge/License-MIT-FFCA28?style=for-the-badge" alt="License" />
   </p>
 
   <p align="center">
@@ -28,6 +26,7 @@
 
 ## 📖 Table of Contents
 - [Overview](#-overview)
+- [Monorepo Structure](#-monorepo-structure)
 - [System Architecture](#-system-architecture)
 - [The Applications Showcase](#-the-applications-showcase)
 - [Core Features](#-core-features)
@@ -39,6 +38,29 @@
 
 ## 🌟 Overview
 The **Anjani Ecosystem** is a complete, production-ready suite of applications designed to modernize restaurant operations from end to end. Built by **Appology Inc**, this monorepo houses everything required to run a high-volume restaurant: from a cinematic customer ordering experience, to a dedicated rider tracking app, a drag-and-drop owner dashboard, and a highly secure payment verification server.
+
+---
+
+## 📂 Monorepo Structure
+
+Our ecosystem is neatly organized into 4 core pillars. Here is how the workspace is structured:
+
+```text
+anjani-restaurant/
+├── 🍽 Anjani Restaurant/            # Customer App (Expo / React Native)
+│   ├── src/app/                     # Next.js-style File-based Routing
+│   ├── src/components/              # Glassmorphic UI Components
+│   └── src/utils/                   # Firebase DB & Notification Logic
+├── 🛵 Anjani Delivery Partner/      # Rider App (Expo / React Native)
+│   ├── src/app/                     # Rider Map & Background Tracker
+│   └── src/state/                   # Zustand Global State
+├── 📊 Anjani Owner Dashboard/       # Admin Dashboard (React / Vite)
+│   ├── src/main.ts                  # Real-Time Kanban Logic & Chart.js
+│   └── index.html                   # Entry point
+└── 🛡 Anjani Razorpay Server/       # Payment Gateway (Node.js)
+    ├── index.js                     # Express Server & Webhook Handler
+    └── package.json                 # Dependencies
+```
 
 ---
 
