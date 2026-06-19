@@ -38,7 +38,18 @@ const AsyncStorage = Platform.OS === 'web' ? {
 import { db, auth, isFirebaseConfigured } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { scheduleLocalNotification } from '../utils/notifications';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+
+const logToCrashlytics = (action: string, data?: any) => {
+  if (Platform.OS !== 'web') {
+    try {
+      const crashlytics = require('@react-native-firebase/crashlytics').default;
+      if (action === 'setUserId' && data) crashlytics().setUserId(data);
+      else if (action === 'log') crashlytics().log(data);
+      else if (action === 'recordError') crashlytics().recordError(data);
+    } catch(e) {}
+  }
+};
 
 /**
  * Represents a saved address for a customer.
@@ -277,6 +288,7 @@ async function callCloudAPI(path: string, options: RequestInit = {}, retries = 2
   }
 
   console.warn(`callCloudAPI failed after ${retries} retries. Path: ${path}`, lastError);
+  logToCrashlytics('recordError', lastError || new Error(`API failed: ${path}`));
   throw new Error('Cloud DB server unreachable or timed out.');
 }
 
@@ -535,6 +547,7 @@ export const useAppStore = create<AppState>((set, get) => {
       }
 
       set({ currentUser: profile });
+      logToCrashlytics('setUserId', profile.uid);
       get().initCloudListeners();
 
 
@@ -785,6 +798,7 @@ export const useAppStore = create<AppState>((set, get) => {
             localUser.longitude = activeAddr.longitude;
           }
           set({ currentUser: localUser, previousOrders: localOrders, activeOrders: localActiveOrders, isSessionLoaded: true });
+          logToCrashlytics('setUserId', localUser.uid);
           
           // Attempt silent background sync to update changes
           let cloudUser: any = null;
@@ -1025,6 +1039,8 @@ export const useAppStore = create<AppState>((set, get) => {
 
     activeOrders: [],
     placeOrder: async (address, phone, paymentMethod, utrNumber, cookingInstructions, userLat, userLng) => {
+      logToCrashlytics('log', `Placing order. Method: ${paymentMethod}`);
+      
       const orderItems = Object.values(get().cart);
       if (orderItems.length === 0) return;
 

@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 
@@ -25,7 +25,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
-    // Crashlytics will also catch this automatically if wired up correctly.
+    // Wire up Crashlytics
+    if (Platform.OS !== 'web') {
+      try {
+        const crashlytics = require('@react-native-firebase/crashlytics').default;
+        crashlytics().recordError(error);
+        crashlytics().log(`Error Info: ${JSON.stringify(errorInfo)}`);
+      } catch (e) {
+        // Crashlytics not available
+      }
+    }
   }
 
   private handleReload = async () => {

@@ -54,7 +54,9 @@
           "icon": "./assets/images/icon.png",
           "color": "#FF6D00"
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics"
     ],
     "extra": {
       "router": {},
