@@ -1,0 +1,42 @@
+name: ESLint Analysis
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    name: Run ESLint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: 
+          - "Anjani Restaurant"
+          - "Anjani Delivery Partner"
+          - "Anjani Owner Dashboard"
+          - "Anjani Owner"
+          - "Anjani Razorpay Server"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: cd "${{ matrix.app }}" && npm install --legacy-peer-deps
+
+      - name: Run ESLint
+        # This checks if an ESLint script exists in package.json and runs it.
+        # If not, it falls back to a global eslint run.
+        run: |
+          cd "${{ matrix.app }}"
+          if npm run | grep -q 'eslint'; then
+            npm run lint
+          else
+            npx eslint . --ext .js,.jsx,.ts,.tsx || echo "ESLint found errors or warnings."
+          fi

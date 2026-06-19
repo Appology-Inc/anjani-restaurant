@@ -1,0 +1,30 @@
+name: Snyk Security Analysis
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  snyk:
+    name: Run Snyk
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        # This will only execute successfully if you have added your SNYK_TOKEN to GitHub Secrets
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          # Scans the entire project tree for dependency vulnerabilities
+          args: --all-projects
+          command: test
