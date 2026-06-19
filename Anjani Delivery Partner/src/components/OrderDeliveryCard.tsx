@@ -1,21 +1,43 @@
+/**
+ * @file OrderDeliveryCard.tsx
+ * @description A comprehensive card component representing an order's status.
+ * Adapts its layout and actions based on whether it is an 'active', 'available', or 'new' order.
+ */
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { ActiveOrder } from '../state/AppStore';
 import { RiderMapCard } from './RiderMapCard';
 
+/**
+ * Props for the OrderDeliveryCard component.
+ */
 interface OrderDeliveryCardProps {
+  /** The order data object. */
   order: ActiveOrder;
+  /** Categorizes the state/section in which this card is displayed. */
   sectionType: 'active' | 'available' | 'new';
+  /** The ID of the currently expanded map, or null. */
   openMapOrderId: string | null;
+  /** Callback to toggle the map visibility for this order. */
   setOpenMapOrderId: (id: string | null) => void;
+  /** Callback to begin GPS simulation for an active order. */
   startSimulation: (order: ActiveOrder) => void;
+  /** Callback to update the order's status (e.g., mark as delivered). */
   updateOrderStatus: (orderId: string, status: any) => void;
+  /** Function returning the chat UI component for the order. */
   renderChatPanel: (order: ActiveOrder) => React.ReactNode;
+  /** Callback for a rider to accept an available delivery task. */
   acceptDeliveryTask: (orderId: string) => void;
 }
 
+/**
+ * Renders a detailed card showing order information, actions, and map/chat expansions.
+ * It uses React.memo for performance optimization to avoid re-renders unless props change.
+ * 
+ * @param props - Component properties.
+ */
 export const OrderDeliveryCard = React.memo(({ 
   order, 
   sectionType, 
@@ -29,7 +51,7 @@ export const OrderDeliveryCard = React.memo(({
 
   if (sectionType === 'active') {
     return (
-      <View key="active-card" style={[ss.orderCard, { marginHorizontal: 16 }]}>
+      <View style={[ss.orderCard, { marginHorizontal: 16 }]}>
         <View style={ss.orderHeader}>
           <View style={ss.orderIdRow}>
             <View style={ss.orderDot} />
@@ -41,25 +63,24 @@ export const OrderDeliveryCard = React.memo(({
         </View>
 
         <View style={ss.infoRow}>
-          <Ionicons name="location" size={13} color={Colors.primary} style={{ marginTop: 2 }} />
+          <Ionicons name="location" size={13} color={Colors.primary} />
           <Text style={ss.infoTxt} numberOfLines={2}>{order.customerAddress}</Text>
         </View>
         <View style={ss.infoRow}>
-          <Ionicons name="person" size={13} color={Colors.muted} style={{ marginTop: 2 }} />
-          <Text style={ss.infoTxt}>{order.customerName || 'Customer'}</Text>
+          <Ionicons name="call" size={13} color={Colors.muted} />
+          <Text style={ss.infoTxt}>{order.customerPhone}</Text>
         </View>
-        <TouchableOpacity style={[ss.infoRow, { paddingVertical: 4 }]} onPress={() => Linking.openURL(`tel:${order.customerPhone}`)}>
-          <Ionicons name="call" size={13} color={Colors.primary} style={{ marginTop: 2 }} />
-          <Text style={[ss.infoTxt, { color: Colors.primary, textDecorationLine: 'underline', fontWeight: 'bold' }]}>{order.customerPhone}</Text>
-        </TouchableOpacity>
         {order.cookingInstructions ? (
           <View style={ss.instructionPill}>
-            <Ionicons name="information-circle-outline" size={12} color={Colors.primary} style={{ marginTop: 1 }} />
+            <Ionicons name="information-circle-outline" size={12} color={Colors.primary} />
             <Text style={ss.instructionTxt}>{order.cookingInstructions}</Text>
           </View>
         ) : null}
 
-
+        <View style={ss.coordRow}>
+          <Ionicons name="navigate" size={11} color={Colors.muted} />
+          <Text style={ss.coordTxt}>{order.riderLat.toFixed(5)}, {order.riderLng.toFixed(5)}</Text>
+        </View>
 
         <TouchableOpacity 
           style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 10, backgroundColor: 'rgba(255,107,0,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,107,0,0.2)' }}
@@ -82,7 +103,7 @@ export const OrderDeliveryCard = React.memo(({
         <View style={ss.actionRow}>
           <TouchableOpacity style={[ss.actionBtn, { backgroundColor: Colors.primary, flex: 1, marginRight: 8 }]} onPress={() => startSimulation(order)}>
             <Ionicons name="play" size={14} color={Colors.white} />
-            <Text style={ss.actionBtnTxt}>Start GPS</Text>
+            <Text style={ss.actionBtnTxt}>GPS Simulate</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[ss.actionBtn, { backgroundColor: Colors.green, flex: 1 }]} onPress={() => { updateOrderStatus(order.id, 'DELIVERED'); Alert.alert('Delivered!', `Order ${order.id} handed to customer.`); }}>
             <Ionicons name="checkmark-done" size={14} color={Colors.white} />
@@ -92,10 +113,10 @@ export const OrderDeliveryCard = React.memo(({
       </View>
     );
   } else if (sectionType === 'new') {
-    const statusColor = order.status === 'PLACED' ? Colors.primary : order.status === 'ACCEPTED' ? '#4ADE80' : '#FBBF24';
-    const statusLabel = order.status === 'PLACED' ? '🍽️ Order Placed' : order.status === 'ACCEPTED' ? '✅ Order Accepted' : '👨‍🍳 Kitchen Preparing';
+    const statusColor = order.status === 'PLACED' ? Colors.primary : '#FBBF24';
+    const statusLabel = order.status === 'PLACED' ? '🍽️ Order Placed' : '👨‍🍳 Kitchen Preparing';
     return (
-      <View key="new-card" style={[ss.orderCard, { marginHorizontal: 16 }]}>
+      <View style={[ss.orderCard, { marginHorizontal: 16 }]}>
         <View style={ss.orderHeader}>
           <View style={ss.orderIdRow}>
             <View style={[ss.orderDot, { backgroundColor: statusColor }]} />
@@ -109,20 +130,16 @@ export const OrderDeliveryCard = React.memo(({
         <Text style={{ fontSize: 12, color: statusColor, fontWeight: '600', marginBottom: 8 }}>{statusLabel}</Text>
 
         <View style={ss.infoRow}>
-          <Ionicons name="location" size={13} color={Colors.primary} style={{ marginTop: 2 }} />
+          <Ionicons name="location" size={13} color={Colors.primary} />
           <Text style={ss.infoTxt} numberOfLines={2}>{order.customerAddress}</Text>
         </View>
         <View style={ss.infoRow}>
-          <Ionicons name="person" size={13} color={Colors.muted} style={{ marginTop: 2 }} />
-          <Text style={ss.infoTxt}>{order.customerName || 'Customer'}</Text>
+          <Ionicons name="call" size={13} color={Colors.muted} />
+          <Text style={ss.infoTxt}>{order.customerPhone}</Text>
         </View>
-        <TouchableOpacity style={[ss.infoRow, { paddingVertical: 4 }]} onPress={() => Linking.openURL(`tel:${order.customerPhone}`)}>
-          <Ionicons name="call" size={13} color={Colors.primary} style={{ marginTop: 2 }} />
-          <Text style={[ss.infoTxt, { color: Colors.primary, textDecorationLine: 'underline', fontWeight: 'bold' }]}>{order.customerPhone}</Text>
-        </TouchableOpacity>
         {order.cookingInstructions ? (
           <View style={ss.instructionPill}>
-            <Ionicons name="information-circle-outline" size={12} color={Colors.primary} style={{ marginTop: 1 }} />
+            <Ionicons name="information-circle-outline" size={12} color={Colors.primary} />
             <Text style={ss.instructionTxt}>{order.cookingInstructions}</Text>
           </View>
         ) : null}
@@ -138,7 +155,7 @@ export const OrderDeliveryCard = React.memo(({
     );
   } else {
     return (
-      <View key="available-card" style={[ss.orderCard, { marginHorizontal: 16 }]}>
+      <View style={[ss.orderCard, { marginHorizontal: 16 }]}>
         <View style={ss.orderHeader}>
           <View style={ss.orderIdRow}>
             <View style={[ss.orderDot, { backgroundColor: Colors.primary }]} />
@@ -150,17 +167,9 @@ export const OrderDeliveryCard = React.memo(({
         </View>
 
         <View style={ss.infoRow}>
-          <Ionicons name="location" size={13} color={Colors.primary} style={{ marginTop: 2 }} />
+          <Ionicons name="location" size={13} color={Colors.primary} />
           <Text style={ss.infoTxt} numberOfLines={2}>{order.customerAddress}</Text>
         </View>
-        <View style={ss.infoRow}>
-          <Ionicons name="person" size={13} color={Colors.muted} style={{ marginTop: 2 }} />
-          <Text style={ss.infoTxt}>{order.customerName || 'Customer'}</Text>
-        </View>
-        <TouchableOpacity style={[ss.infoRow, { paddingVertical: 4 }]} onPress={() => Linking.openURL(`tel:${order.customerPhone}`)}>
-          <Ionicons name="call" size={13} color={Colors.primary} style={{ marginTop: 2 }} />
-          <Text style={[ss.infoTxt, { color: Colors.primary, textDecorationLine: 'underline', fontWeight: 'bold' }]}>{order.customerPhone}</Text>
-        </TouchableOpacity>
         <View style={ss.totalRow}>
           <Text style={ss.totalLabel}>Order Value</Text>
           <Text style={ss.totalValue}>₹{Math.floor(order.totalAmount)}</Text>
@@ -176,7 +185,7 @@ export const OrderDeliveryCard = React.memo(({
 });
 
 const ss = StyleSheet.create({
-  orderCard: { backgroundColor: '#161618', borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  orderCard: { backgroundColor: '#221A0F', borderRadius: 16, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,107,0,0.18)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
   orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   orderIdRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   orderDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E' },
@@ -191,8 +200,8 @@ const ss = StyleSheet.create({
   coordTxt: { fontSize: 10, color: '#9A8A72', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   totalLabel: { fontSize: 12, color: '#9A8A72' },
-  totalValue: { fontSize: 18, fontWeight: '900', color: '#FF6B00', letterSpacing: -0.5 },
+  totalValue: { fontSize: 16, fontWeight: '800', color: '#FF6B00' },
   actionRow: { flexDirection: 'row', marginTop: 4 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
-  actionBtnTxt: { color: '#FFF', fontSize: 13, fontWeight: '800' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 10 },
+  actionBtnTxt: { color: '#FFF', fontSize: 12, fontWeight: '700' },
 });

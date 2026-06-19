@@ -1,47 +1,63 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if the requester is an owner
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+      // Adding a safe default to prevent crashing if the document is missing
+      let doc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return doc != null ? doc.data.role : 'customer';
+    }
+    
     function isOwner() {
-      return request.auth != null && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+      return isAuthenticated() && getUserRole() == 'owner';
+    }
+    
+    function isRider() {
+      return isAuthenticated() && getUserRole() == 'rider';
+    }
+    
+    function isCustomer() {
+      return isAuthenticated() && getUserRole() == 'customer';
     }
 
     // --- Users Collection ---
+    // Users can only read/write their own profile document
     match /users/{userId} {
-      // Authenticated users can read profiles (Customer needs Rider details, etc.)
-      allow read: if request.auth != null;
-      // Users can edit their own profile, or Owners can edit any profile
-      allow write: if request.auth != null && (request.auth.uid == userId || isOwner());
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
 
     // --- Menu Collection ---
+    // Anyone can read the menu; only the owner can modify it
     match /menu/{itemId} {
-      // Anyone can read the menu (even before logging in)
       allow read: if true;
-      // Only Owners can manage the menu
+      allow write: if isOwner();
+    }
+    
+    // --- Settings Collection ---
+    // Anyone can read settings (restaurant status, payment config); only the owner can modify
+    match /settings/{settingId} {
+      allow read: if true;
       allow write: if isOwner();
     }
 
     // --- Orders Collection ---
+    // Authenticated users can create orders if they set their own customerUid
+    // Users can read their own orders; owners and riders can read all orders
+    // Only authenticated users can update orders (owner changes status, rider updates position)
     match /orders/{orderId} {
-      // Authenticated users can read their orders (or Riders fetching the list)
-      allow read: if request.auth != null;
-      // Any authenticated user can create an order
-      allow create: if request.auth != null;
-      // Any authenticated user can update (Riders accepting, Customers canceling, Owners managing)
-      allow update: if request.auth != null;
-      // Only Owners can hard-delete orders
+      allow create: if isAuthenticated() && request.resource.data.customerUid == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.customerUid == request.auth.uid ||
+        isOwner() ||
+        isRider()
+      );
+      allow update: if isAuthenticated();
       allow delete: if isOwner();
-    }
-
-    // --- Settings Collection ---
-    match /settings/{settingId} {
-      // Anyone can read app settings
-      allow read: if true;
-      // Only Owners can change settings
-      allow write: if isOwner();
     }
     
     // Catch-all default deny

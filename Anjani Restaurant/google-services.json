@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "560562817811",
+    "project_id": "anjani-restaurant",
+    "storage_bucket": "anjani-restaurant.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:560562817811:android:be93933b65fbbdc4ed28e6",
+        "android_client_info": {
+          "package_name": "com.anjani.customerapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "560562817811-3f47tbo0s95jep8ncl8uvudvco00nvpk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBs-50cVATPQR0FgXyjFv4S3zJj2S6oBbw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "560562817811-3f47tbo0s95jep8ncl8uvudvco00nvpk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

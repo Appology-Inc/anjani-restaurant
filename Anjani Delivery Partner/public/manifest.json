@@ -1,0 +1,37 @@
+{
+  "id": "/",
+  "name": "Anjani Delivery Partner",
+  "short_name": "Anjani Rider",
+  "description": "Fulfill deliveries for Anjani Restaurant.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05050A",
+  "theme_color": "#05050A",
+  "icons": [
+    {
+      "src": "/icon-192-v2.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192-v2.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512-v2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512-v2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

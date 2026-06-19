@@ -52,4 +52,7 @@ if (isFirebaseConfigured) {
   console.warn("⚠️ Firebase credentials missing or set to placeholders in src/config/firebase.ts. Running in local mock/cache mode.");
 }
 
-export { auth, db, isFirebaseConfigured };
+import { getFunctions } from 'firebase/functions';
+const functions = isFirebaseConfigured ? getFunctions(app) : null;
+
+export { auth, db, isFirebaseConfigured, functions, app };

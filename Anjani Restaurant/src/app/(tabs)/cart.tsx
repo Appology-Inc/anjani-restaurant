@@ -1,5 +1,11 @@
+/**
+ * @file cart.tsx
+ * @description Shopping cart screen for Anjani Restaurant.
+ * Displays selected menu items, calculates totals with taxes and delivery fees,
+ * and collects special cooking instructions before checkout.
+ */
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView, Image } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +14,16 @@ import { Colors } from '../../constants/Colors';
 import { useAppStore } from '../../state/AppStore';
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 
+/**
+ * CartScreen Component
+ * 
+ * Manages the user's shopping cart, displaying added items, quantities,
+ * and price breakdowns including subtotal, taxes, and delivery fees.
+ * Allows users to modify item quantities, add cooking instructions,
+ * and proceed to the checkout payment flow.
+ * 
+ * @returns {React.ReactElement} The rendered Cart screen.
+ */
 export default function CartScreen() {
   const { cart, addToCart, removeFromCart, getCartTotal, getCartCount } = useAppStore();
   const router = useRouter();
@@ -23,165 +39,187 @@ export default function CartScreen() {
   const deliveryFee = isEmpty ? 0 : 30;
   const grandTotal = subtotal + tax + deliveryFee;
 
+  /**
+   * Adds an item to the cart or increments its quantity.
+   * 
+   * @param {any} item - The menu item to add.
+   */
   const handleAdd = (item: any) => {
     addToCart(item);
   };
 
+  /**
+   * Removes an item from the cart or decrements its quantity.
+   * 
+   * @param {any} item - The menu item to remove.
+   */
   const handleRemove = (item: any) => {
     removeFromCart(item);
   };
 
+  /**
+   * Navigates the user to the checkout screen, passing along any cooking instructions.
+   */
   const handleProceedToPayment = () => {
     router.push({ pathname: '/checkout', params: { instructions: instructions.trim() } });
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 8 }]}>
-        <Text style={styles.headerTitle}>Your Order</Text>
-        {!isEmpty && (
-          <Text style={styles.headerCount}>{getCartCount()} {getCartCount() === 1 ? 'item' : 'items'}</Text>
-        )}
+      {/* Header stretching full width, content centered */}
+      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 'calc(20px + env(safe-area-inset-top))' : Math.max(insets.top, 12) + 8 }]}>
+        <View style={{ width: '100%', maxWidth: 800, alignSelf: 'center', alignItems: 'center' }}>
+          <Text style={styles.headerTitle}>Your Order</Text>
+          {!isEmpty && (
+            <Text style={styles.headerCount}>{getCartCount()} {getCartCount() === 1 ? 'item' : 'items'}</Text>
+          )}
+        </View>
       </View>
 
       {isEmpty ? (
-        <Animated.View entering={FadeIn.duration(400)} style={styles.emptyState}>
-          <View style={styles.emptyIconWrap}>
-            <Ionicons name="cart-outline" size={56} color={Colors.muted} />
-          </View>
-          <Text style={styles.emptyTitle}>Your cart is empty</Text>
-          <Text style={styles.emptySub}>Add some delicious dishes from the menu</Text>
-          <TouchableOpacity 
-            style={styles.browseBtn} 
-            onPress={() => router.push('/(tabs)')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="restaurant-outline" size={18} color={Colors.primary} />
-            <Text style={styles.browseBtnText}>Browse Menu</Text>
-          </TouchableOpacity>
-        </Animated.View>
+        <View style={{ flex: 1, alignSelf: 'center', width: '100%', maxWidth: 800 }}>
+          <Animated.View entering={FadeIn.duration(400)} style={styles.emptyState}>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="cart-outline" size={56} color={Colors.muted} />
+            </View>
+            <Text style={styles.emptyTitle}>Your cart is empty</Text>
+            <Text style={styles.emptySub}>Add some delicious dishes from the menu</Text>
+            <TouchableOpacity 
+              style={styles.browseBtn} 
+              onPress={() => router.push('/(tabs)')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="restaurant-outline" size={18} color={Colors.primary} />
+              <Text style={styles.browseBtnText}>Browse Menu</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       ) : (
         <View style={{ flex: 1 }}>
-          <KeyboardAwareScrollView 
-            style={{ flex: 1 }} 
-            contentContainerStyle={{ flexGrow: 1 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            enableOnAndroid={true}
-            extraScrollHeight={20}
-          >
-            {/* ─── Cart Items ─── */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>ITEMS IN YOUR CART</Text>
-              {cartItems.map((c, index) => (
-                <Animated.View 
-                  key={c.item.id} 
-                  entering={FadeInDown.delay(index * 60).duration(300)}
-                  exiting={FadeOut.duration(200)}
-                  layout={LinearTransition.duration(200)}
-                  style={styles.itemCard}
-                >
-                  <View style={styles.itemLeft}>
-                    <View style={[styles.vegBadge, { borderColor: c.item.isVeg ? Colors.green : Colors.red }]}>
-                      <View style={[styles.vegDot, { backgroundColor: c.item.isVeg ? Colors.green : Colors.red }]} />
-                    </View>
-                    <View style={styles.itemInfo}>
-                      <Text style={styles.itemName} numberOfLines={1}>{c.item.name}</Text>
-                      <Text style={styles.itemPrice}>₹{c.item.price}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.itemRight}>
-                    <View style={styles.qtyControls}>
-                      <TouchableOpacity 
-                        style={styles.qtyBtn} 
-                        onPress={() => handleRemove(c.item)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name={c.quantity === 1 ? "trash-outline" : "remove"} size={14} color={c.quantity === 1 ? Colors.red : Colors.text} />
-                      </TouchableOpacity>
-                      <Text style={styles.qtyText}>{c.quantity}</Text>
-                      <TouchableOpacity 
-                        style={[styles.qtyBtn, styles.qtyBtnAdd]} 
-                        onPress={() => handleAdd(c.item)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="add" size={14} color={Colors.white} />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.itemTotal}>₹{c.item.price * c.quantity}</Text>
-                  </View>
-                </Animated.View>
-              ))}
-            </View>
-
-            {/* ─── Cooking Instructions ─── */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>COOKING INSTRUCTIONS</Text>
-              <View style={styles.instructionsBox}>
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.muted} style={{ marginTop: 2 }} />
-                <TextInput
-                  style={styles.instructionsInput}
-                  placeholder="e.g. Less spicy, no onion, extra cheese..."
-                  placeholderTextColor={Colors.muted}
-                  value={instructions}
-                  onChangeText={setInstructions}
-                  multiline
-                  maxLength={200}
-                  textAlignVertical="top"
-                />
-              </View>
-              {instructions.length > 0 && (
-                <Text style={styles.charCount}>{instructions.length}/200</Text>
-              )}
-            </View>
-
-            {/* ─── Bill Summary ─── */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>BILL DETAILS</Text>
-              <View style={styles.billCard}>
-                <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Item Total</Text>
-                  <Text style={styles.billValue}>₹{subtotal}</Text>
-                </View>
-                <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Delivery Fee</Text>
-                  <Text style={styles.billValue}>₹{deliveryFee}</Text>
-                </View>
-                <View style={styles.billRow}>
-                  <Text style={[styles.billLabel, { fontSize: 9 }]}>SGST (2.5%)</Text>
-                  <Text style={[styles.billValue, { fontSize: 9 }]}>₹{sgst}</Text>
-                </View>
-                <View style={styles.billRow}>
-                  <Text style={[styles.billLabel, { fontSize: 9 }]}>CGST (2.5%)</Text>
-                  <Text style={[styles.billValue, { fontSize: 9 }]}>₹{cgst}</Text>
-                </View>
-                <View style={styles.billDivider} />
-                <View style={styles.billRow}>
-                  <Text style={styles.grandLabel}>To Pay</Text>
-                  <Text style={styles.grandValue}>₹{grandTotal}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ height: 120 }} />
-          </KeyboardAwareScrollView>
-
-          {/* ─── Floating Checkout Footer ─── */}
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
-            <View style={styles.footerInfo}>
-              <Text style={styles.footerTotal}>₹{grandTotal}</Text>
-              <Text style={styles.footerSub}>incl. taxes</Text>
-            </View>
-            <TouchableOpacity 
-              style={styles.paymentBtn} 
-              onPress={handleProceedToPayment}
-              activeOpacity={0.85}
+          <View style={{ flex: 1, alignSelf: 'center', width: '100%', maxWidth: 800 }}>
+            <KeyboardAwareScrollView 
+              style={{ flex: 1 }} 
+              contentContainerStyle={{ flexGrow: 1 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              enableOnAndroid={true}
+              extraScrollHeight={20}
             >
-              <Text style={styles.paymentBtnText}>Proceed to Payment</Text>
-              <Ionicons name="arrow-forward" size={18} color={Colors.white} />
-            </TouchableOpacity>
+              {/* ─── Cart Items ─── */}
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>ITEMS IN YOUR CART</Text>
+                {cartItems.map((c, index) => (
+                  <Animated.View 
+                    key={c.item.id} 
+                    entering={FadeInDown.delay(index * 60).duration(300)}
+                    exiting={FadeOut.duration(200)}
+                    layout={LinearTransition.duration(200)}
+                    style={styles.itemCard}
+                  >
+                    <View style={styles.itemLeft}>
+                      <View style={{ flex: 1, justifyContent: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={[styles.vegBadge, { borderColor: c.item.isVeg ? Colors.green : Colors.red, marginTop: 0 }]}>
+                            <View style={[styles.vegDot, { backgroundColor: c.item.isVeg ? Colors.green : Colors.red }]} />
+                          </View>
+                          <Text style={[styles.itemName, { flex: 1 }]} numberOfLines={1}>{c.item.name}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.itemRight}>
+                      <View style={styles.qtyControls}>
+                        <TouchableOpacity 
+                          style={styles.qtyBtn} 
+                          onPress={() => handleRemove(c.item)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name={c.quantity === 1 ? "trash-outline" : "remove"} size={14} color={c.quantity === 1 ? Colors.red : Colors.text} />
+                        </TouchableOpacity>
+                        <Text style={styles.qtyText}>{c.quantity}</Text>
+                        <TouchableOpacity 
+                          style={[styles.qtyBtn, styles.qtyBtnAdd]} 
+                          onPress={() => handleAdd(c.item)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="add" size={14} color={Colors.white} />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.itemTotal}>₹{c.item.price * c.quantity}</Text>
+                    </View>
+                  </Animated.View>
+                ))}
+              </View>
+
+              {/* ─── Cooking Instructions ─── */}
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>COOKING INSTRUCTIONS</Text>
+                <View style={styles.instructionsBox}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.muted} style={{ marginTop: 2 }} />
+                  <TextInput
+                    style={styles.instructionsInput}
+                    placeholder="e.g. Less spicy, no onion, extra cheese..."
+                    placeholderTextColor={Colors.muted}
+                    value={instructions}
+                    onChangeText={setInstructions}
+                    multiline
+                    maxLength={200}
+                    textAlignVertical="top"
+                  />
+                </View>
+                {instructions.length > 0 && (
+                  <Text style={styles.charCount}>{instructions.length}/200</Text>
+                )}
+              </View>
+
+              {/* ─── Bill Summary ─── */}
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>BILL DETAILS</Text>
+                <View style={styles.billCard}>
+                  <View style={styles.billRow}>
+                    <Text style={styles.billLabel}>Item Total</Text>
+                    <Text style={styles.billValue}>₹{subtotal}</Text>
+                  </View>
+                  <View style={styles.billRow}>
+                    <Text style={styles.billLabel}>Delivery Fee</Text>
+                    <Text style={styles.billValue}>₹{deliveryFee}</Text>
+                  </View>
+                  <View style={styles.billRow}>
+                    <Text style={[styles.billLabel, { fontSize: 9 }]}>SGST (2.5%)</Text>
+                    <Text style={[styles.billValue, { fontSize: 9 }]}>₹{sgst}</Text>
+                  </View>
+                  <View style={styles.billRow}>
+                    <Text style={[styles.billLabel, { fontSize: 9 }]}>CGST (2.5%)</Text>
+                    <Text style={[styles.billValue, { fontSize: 9 }]}>₹{cgst}</Text>
+                  </View>
+                  <View style={[styles.billDivider, { borderStyle: 'dashed', backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.border, height: 1 }]} />
+                  <View style={styles.billRow}>
+                    <Text style={styles.grandLabel}>To Pay</Text>
+                    <Text style={styles.grandValue}>₹{grandTotal}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={{ height: 120 }} />
+            </KeyboardAwareScrollView>
+          </View>
+
+          {/* ─── Floating Checkout Footer stretching full width, content centered ─── */}
+          <View style={[styles.footer, { paddingBottom: Platform.OS === 'web' ? 'calc(20px + env(safe-area-inset-bottom))' : Math.max(insets.bottom, 12) + 8 }]}>
+            <View style={{ width: '100%', maxWidth: 800, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}>
+              <View style={styles.footerInfo}>
+                <Text style={styles.footerTotal}>₹{grandTotal}</Text>
+                <Text style={styles.footerSub}>incl. taxes</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.paymentBtn} 
+                onPress={handleProceedToPayment}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.paymentBtnText}>Proceed to Payment</Text>
+                <Ionicons name="arrow-forward" size={18} color={Colors.white} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -197,11 +235,10 @@ const styles = StyleSheet.create({
 
   // ─── Header ───
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 14,
     backgroundColor: Colors.dark,
     borderBottomWidth: 1,
     borderBottomColor: Colors.card2,
+    paddingBottom: 14,
   },
   headerTitle: {
     fontSize: 22,
@@ -436,11 +473,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: Colors.dark,
-    paddingHorizontal: 16,
     paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: Colors.card2,

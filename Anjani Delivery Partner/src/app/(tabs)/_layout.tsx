@@ -1,12 +1,17 @@
+/**
+ * @fileoverview Main bottom tabs layout for the Anjani Delivery Partner application.
+ */
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+/**
+ * TabLayout component configuring the main navigation tabs.
+ * 
+ * @returns {React.ReactElement} The configured Tabs navigator.
+ */
 export default function TabLayout() {
-  const insets = useSafeAreaInsets();
-
   return (
     <Tabs
       screenOptions={{
@@ -15,9 +20,9 @@ export default function TabLayout() {
           backgroundColor: Colors.dark,
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : (Platform.OS === 'ios' ? 20 : 10),
-          paddingTop: 10,
+          height: Platform.OS === 'ios' ? 88 : 68,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+          paddingTop: 12,
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.muted,
@@ -34,15 +39,6 @@ export default function TabLayout() {
           title: 'Deliveries',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bicycle" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'Delivered',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="checkmark-done-circle-outline" size={size} color={color} />
           ),
         }}
       />

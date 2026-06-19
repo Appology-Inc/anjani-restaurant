@@ -1,51 +1,68 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper functions
+
+    // Helper Functions
     function isAuthenticated() {
       return request.auth != null;
     }
+    
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      // Adding a safe default to prevent crashing if the document is missing
+      let doc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return doc != null ? doc.data.role : 'customer';
     }
+    
     function isOwner() {
       return isAuthenticated() && getUserRole() == 'owner';
     }
+    
     function isRider() {
       return isAuthenticated() && getUserRole() == 'rider';
     }
-
-    // Users Collection
-    match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isOwner());
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+    
+    function isCustomer() {
+      return isAuthenticated() && getUserRole() == 'customer';
     }
 
-    // Menu Collection — public read, owner write
+    // --- Users Collection ---
+    // Users can only read/write their own profile document
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // --- Menu Collection ---
+    // Anyone can read the menu; only the owner can modify it
     match /menu/{itemId} {
       allow read: if true;
       allow write: if isOwner();
     }
-
-    // Orders Collection
-    // READ: fully public — all apps (customer, owner, rider) need to read the full collection
-    // This avoids onSnapshot permission failures for anonymous/unauthenticated users
-    match /orders/{orderId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (
-        isOwner() ||
-        isRider() ||
-        resource.data.customerUid == request.auth.uid
-      );
-      allow delete: if isOwner();
-    }
-
-    // Settings Collection — public read (restaurant open/close), owner write
+    
+    // --- Settings Collection ---
+    // Anyone can read settings (restaurant status, payment config); only the owner can modify
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isOwner();
+    }
+
+    // --- Orders Collection ---
+    // Authenticated users can create orders if they set their own customerUid
+    // Users can read their own orders; owners and riders can read all orders
+    // Only authenticated users can update orders (owner changes status, rider updates position)
+    match /orders/{orderId} {
+      allow create: if isAuthenticated() && request.resource.data.customerUid == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.customerUid == request.auth.uid ||
+        isOwner() ||
+        isRider()
+      );
+      allow update: if isAuthenticated();
+      allow delete: if isOwner();
+    }
+    
+    // Catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -1,3 +1,9 @@
+/**
+ * @file _layout.tsx
+ * @description Main tab layout configuration for the Anjani Restaurant application.
+ * Manages the bottom navigation tabs, session state routing, and tab bar styling.
+ */
+import React from 'react';
 import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -5,9 +11,22 @@ import { Colors } from '../../constants/Colors';
 import { useAppStore } from '../../state/AppStore';
 import { View, Text, StyleSheet } from 'react-native';
 
+/**
+ * TabLayout Component
+ * 
+ * Renders the bottom navigation bar with icons and badges.
+ * Includes session validation to ensure only authenticated users
+ * can access the main application features.
+ * 
+ * @returns {React.ReactElement} The rendered tab layout or a redirect.
+ */
 export default function TabLayout() {
-  const { getCartCount, currentUser } = useAppStore();
+  const { getCartCount, currentUser, isSessionLoaded } = useAppStore();
   const insets = useSafeAreaInsets();
+
+  if (!isSessionLoaded) {
+    return <View style={{ flex: 1, backgroundColor: Colors.dark }} />;
+  }
 
   if (!currentUser) {
     return <Redirect href="/auth" />;
@@ -23,10 +42,11 @@ export default function TabLayout() {
           borderTopColor: Colors.card2,
           elevation: 0,
           shadowOpacity: 0,
-          height: 56 + Math.max(insets.bottom, 0),
-          paddingBottom: Math.max(insets.bottom, 8),
+          minHeight: 60 + (insets.bottom > 0 ? insets.bottom : 12),
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
           paddingTop: 8,
         },
+        tabBarShowLabel: true,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.muted,
         tabBarLabelStyle: {

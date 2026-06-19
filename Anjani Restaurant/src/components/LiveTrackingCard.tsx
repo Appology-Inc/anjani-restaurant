@@ -1,3 +1,9 @@
+/**
+ * @file LiveTrackingCard.tsx
+ * @description A comprehensive live order tracking component that displays real-time 
+ * order status, rider location on a map, delivery ETAs, and includes an interactive 
+ * chat interface with the delivery partner. Supports both native Maps and web fallbacks.
+ */
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
@@ -25,7 +31,7 @@ import { useAppStore } from '../state/AppStore';
 // ─── Map Imports with Safety Guards ──────────────────────────────────────────
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from './Maps';
 
-// Sleek dark-mode style for React Native Maps
+// Sleek dark-mode style for React Native Maps (when using native map provider)
 const mapDarkStyle = [
   { "elementType": "geometry", "stylers": [{ "color": "#1C1C1E" }] },
   { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
@@ -40,9 +46,20 @@ const mapDarkStyle = [
   { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#000000" }] }
 ];
 
+/**
+ * LiveTrackingCard Component.
+ * Visualizes the lifecycle of an order from 'Placed' to 'Delivered' or 'Cancelled', 
+ * rendering an interactive map, status milestones, rider details, and an embedded chat.
+ * 
+ * @param {Object} props - Component properties.
+ * @param {any} props.order - The current order object containing status, lat/lng coordinates, items, etc.
+ * @param {() => void} props.onClear - Callback fired when the user dismisses the tracking view.
+ */
 export default function LiveTrackingCard({ order, onClear }: { order: any; onClear: () => void }) {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<any>(null);
+  const hasAutoCentered = useRef(false);
+  const hadRiderCoords = useRef(order.riderLat != null && order.riderLng != null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const chatSlideAnim = useRef(new Animated.Value(0)).current;
   const chatOpacityAnim = useRef(new Animated.Value(0)).current;
@@ -57,8 +74,30 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
   const flatListRef = useRef<FlatList>(null);
   const chatInputRef = useRef<TextInput>(null);
 
-  const { chatMessages, sendChatMessage, currentUser, submitReview } = useAppStore();
-  const orderMessages = chatMessages[order.id] || [];
+  const { chatMessages, sendChatMessage, currentUser, submitReview, activeOrders } = useAppStore();
+  const orderMessages = chatMessages[order?.id] || [];
+
+  // Visual status layer: ensures the customer always sees "Accepted" before "Chefs are Cooking"
+  // even if the backend jumps directly from PLACED to PREPARING
+  const [visualStatus, setVisualStatus] = useState(order.status);
+  const prevRealStatusRef = useRef(order.status);
+
+  useEffect(() => {
+    const prev = prevRealStatusRef.current;
+    const next = order.status;
+    prevRealStatusRef.current = next;
+
+    // If the real status jumped from PLACED straight to PREPARING,
+    // show "Restaurant Confirmed!" for 25 seconds first
+    if (prev === 'PLACED' && next === 'PREPARING') {
+      setVisualStatus('ACCEPTED');
+      const timer = setTimeout(() => setVisualStatus('PREPARING'), 25000);
+      return () => clearTimeout(timer);
+    }
+
+    // For all other transitions (including real ACCEPTED), update immediately
+    setVisualStatus(next);
+  }, [order.status]);
 
   // Pulsating dot indicator loop
   useEffect(() => {
@@ -110,12 +149,21 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
     };
   }, []);
 
-  // Responsive camera framing on live rider GPS updates
+  // Responsive camera framing on live rider GPS updates (ONLY on first load or first rider assignment to prevent continuous map jump/zooming)
   useEffect(() => {
     if (mapRef.current) {
-      setTimeout(() => {
-        recenterMap();
-      }, 600);
+      const hasRider = order.riderLat != null && order.riderLng != null;
+      const justGotRider = hasRider && !hadRiderCoords.current;
+      
+      if (!hasAutoCentered.current || justGotRider) {
+        if (hasRider) {
+          hadRiderCoords.current = true;
+        }
+        setTimeout(() => {
+          recenterMap();
+          hasAutoCentered.current = true;
+        }, 600);
+      }
     }
   }, [order.riderLat, order.riderLng]);
 
@@ -126,7 +174,7 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
           { latitude: order.restaurantLat, longitude: order.restaurantLng },
           { latitude: order.userLat, longitude: order.userLng }
         ];
-        if (order.riderLat !== undefined && order.riderLng !== undefined) {
+        if (order.riderLat != null && order.riderLng != null) {
           coords.push({ latitude: order.riderLat, longitude: order.riderLng });
         }
         mapRef.current.fitToCoordinates(coords, {
@@ -159,7 +207,9 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
     const trimmed = chatText.trim();
     if (!trimmed) return;
     const senderName = currentUser?.name || 'Customer';
-    sendChatMessage(order.id, 'customer', senderName, trimmed);
+    if (order?.id) {
+      sendChatMessage(order.id, 'customer', senderName, trimmed);
+    }
     setChatText('');
   };
 
@@ -179,12 +229,23 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
   let distanceText = '';
   let timeText = '';
 
-  if (order.status === 'PREPARING' || order.status === 'PLACED') {
+  if (['PLACED', 'ACCEPTED', 'PREPARING'].includes(visualStatus)) {
     dist = getDistance(order.restaurantLat, order.restaurantLng, order.userLat, order.userLng);
     distanceText = `${dist.toFixed(1)} km to deliver`;
     const travelTime = Math.max(1, Math.round(dist * 3.5));
     timeText = `${15 + travelTime} mins`; // 15 min prep + travel
-  } else {
+  } else if (visualStatus === 'READY') {
+    dist = getDistance(order.restaurantLat, order.restaurantLng, order.userLat, order.userLng);
+    distanceText = `${dist.toFixed(1)} km to deliver`;
+    const travelTime = Math.max(1, Math.round(dist * 3.5));
+    timeText = `${travelTime + 5} mins`; // travel + 5 min matching buffer
+  } else if (visualStatus === 'DELIVERED') {
+    distanceText = 'Completed';
+    timeText = 'Delivered! 🎉';
+  } else if (visualStatus === 'CANCELLED' || visualStatus === 'PAYMENT_PENDING') {
+    distanceText = visualStatus === 'CANCELLED' ? 'Cancelled' : 'Failed';
+    timeText = visualStatus === 'CANCELLED' ? 'Cancelled' : 'Failed';
+  } else { // OUT_FOR_DELIVERY
     const rLat = order.riderLat ?? order.restaurantLat;
     const rLng = order.riderLng ?? order.restaurantLng;
     dist = getDistance(rLat, rLng, order.userLat, order.userLng);
@@ -194,14 +255,14 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
 
   // Compute linear step progress percentage
   let progressPercent = '0%';
-  if (order.status === 'ACCEPTED') progressPercent = '20%';
-  else if (order.status === 'PREPARING') progressPercent = '40%';
-  else if (order.status === 'READY') progressPercent = '60%';
-  else if (order.status === 'OUT_FOR_DELIVERY') progressPercent = '80%';
-  else if (order.status === 'DELIVERED') progressPercent = '100%';
+  if (visualStatus === 'ACCEPTED') progressPercent = '20%';
+  else if (visualStatus === 'PREPARING') progressPercent = '40%';
+  else if (visualStatus === 'READY') progressPercent = '60%';
+  else if (visualStatus === 'OUT_FOR_DELIVERY') progressPercent = '80%';
+  else if (visualStatus === 'DELIVERED') progressPercent = '100%';
 
   const handleCallRider = () => {
-    Linking.openURL('tel:+919032756266');
+    Linking.openURL('tel:+919032756266').catch(() => {});
   };
 
   const formatTime = (ts: number) => {
@@ -210,11 +271,12 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
   };
 
   const renderPrepPanel = () => {
-    const isPlaced = order.status === 'PLACED';
-    const isAccepted = order.status === 'ACCEPTED';
-    const isPreparing = order.status === 'PREPARING';
-    const isReady = order.status === 'READY';
-    const isCancelled = order.status === 'CANCELLED';
+    const isPlaced = visualStatus === 'PLACED';
+    const isAccepted = visualStatus === 'ACCEPTED';
+    const isPreparing = visualStatus === 'PREPARING';
+    const isReady = visualStatus === 'READY';
+    const isCancelled = visualStatus === 'CANCELLED';
+    const isDelivered = visualStatus === 'DELIVERED';
     
     let iconName: any = 'time';
     let iconColor = '#F59E0B'; // Amber
@@ -228,6 +290,12 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
       bgColor = 'rgba(239,68,68,0.15)';
       title = 'Order Cancelled';
       subtitle = (order as any).cancelReason || 'Unfortunately, your order could not be fulfilled at this time.';
+    } else if (isDelivered) {
+      iconName = 'checkmark-done-circle';
+      iconColor = '#10B981';
+      bgColor = 'rgba(16,185,129,0.15)';
+      title = 'Order Delivered! 🎉';
+      subtitle = 'Your food has been delivered successfully. Thank you for choosing Anjani Restaurant! Enjoy your hot meal!';
     } else if (isAccepted) {
       iconName = 'checkmark-circle';
       iconColor = '#10B981';
@@ -249,7 +317,7 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
     }
 
     return (
-      <View style={[styles.mapContainer, { backgroundColor: '#1C1C1E', justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+      <View style={[styles.mapContainer, { backgroundColor: '#1C1C1E', justifyContent: 'center', alignItems: 'center', padding: 20 }]} {...Platform.select({ web: { className: 'tracking-map-panel' } })}>
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
             <Ionicons name={iconName} size={32} color={iconColor} />
@@ -266,11 +334,11 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
   };
 
   const renderMapPanel = (isHidden: boolean) => {
-    const showLiveMap = Platform.OS !== 'web';
+    const showLiveMap = true; // Enabled for Web now!
 
     if (showLiveMap) {
       return (
-        <View style={[styles.mapContainer, isHidden && { display: 'none' }]}>
+        <View style={[styles.mapContainer, isHidden && { display: 'none' }]} {...Platform.select({ web: { className: 'tracking-map-container' } })}>
           <MapView
             ref={mapRef}
             style={styles.map}
@@ -281,11 +349,16 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
               longitudeDelta: Math.abs(order.restaurantLng - order.userLng) * 1.8 || 0.05,
             }}
             markers={[
-              { lat: order.restaurantLat, lng: order.restaurantLng, type: 'restaurant' },
-              { lat: order.userLat, lng: order.userLng, type: 'customer' },
-              ...((order.status === 'OUT_FOR_DELIVERY' || order.status === 'DELIVERED') && order.riderLat !== undefined && order.riderLng !== undefined 
+              ...(order.restaurantLat && order.restaurantLng ? [{ lat: order.restaurantLat, lng: order.restaurantLng, type: 'restaurant' }] : []),
+              ...(order.userLat && order.userLng ? [{ lat: order.userLat, lng: order.userLng, type: 'customer' }] : []),
+              ...((order.status === 'OUT_FOR_DELIVERY' || order.status === 'DELIVERED') && order.riderLat != null && order.riderLng != null 
                   ? [{ lat: order.riderLat, lng: order.riderLng, type: 'rider' }] 
                   : [])
+            ]}
+            polyline={[
+              ...(order.restaurantLat && order.restaurantLng ? [{ lat: order.restaurantLat, lng: order.restaurantLng }] : []),
+              ...(order.status === 'OUT_FOR_DELIVERY' && order.riderLat && order.riderLng ? [{ lat: order.riderLat, lng: order.riderLng }] : []),
+              ...(order.userLat && order.userLng ? [{ lat: order.userLat, lng: order.userLng }] : [])
             ]}
           />
           
@@ -302,7 +375,7 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
 
     // High fidelity isometric fallback grid for Web/Simulators
     return (
-      <View style={styles.fallbackMapContainer}>
+      <View style={[styles.fallbackMapContainer, isHidden && { display: 'none' }]}>
         <View style={styles.isometricTimeline}>
           <View style={styles.isoHub}>
             <View style={[styles.isoHubIcon, { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: '#10B981' }]}>
@@ -313,7 +386,7 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
 
           <View style={styles.isoLine}>
             <Animated.View style={[styles.isoRider, { 
-              left: ['PREPARING', 'ACCEPTED', 'READY', 'PLACED'].includes(order.status) ? '25%' : order.status === 'OUT_FOR_DELIVERY' ? '65%' : '90%',
+              left: ['PREPARING', 'ACCEPTED', 'READY', 'PLACED'].includes(visualStatus) ? '25%' : visualStatus === 'OUT_FOR_DELIVERY' ? '65%' : '90%',
               transform: [{ scale: pulseAnim }]
             }]}>
               <Ionicons name="bicycle" size={14} color="#FFF" />
@@ -359,7 +432,7 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
                   <FlatList
                     ref={flatListRef}
                     data={orderMessages}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item, index) => item?.id || index.toString()}
                     showsVerticalScrollIndicator={false}
                     style={{ maxHeight: 200 }}
                     contentContainerStyle={{ paddingVertical: 4 }}
@@ -452,7 +525,7 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
               ) : (
                 <FlatList
                   data={orderMessages}
-                  keyExtractor={(item) => item.id}
+                  keyExtractor={(item, index) => item?.id || index.toString()}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
                   renderItem={({ item }) => {
@@ -518,137 +591,218 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
   };
 
   return (
-    <View style={styles.liveCard}>
+    <View style={styles.liveCard} {...Platform.select({ web: { className: 'tracking-card-enhanced' } })}>
       {/* Live Track Header */}
-      <View style={[styles.liveHeader, { flexDirection: 'column', alignItems: 'flex-start', gap: 2 }]}>
-        <View style={{ width: '100%' }}>
-          {order.items && order.items.length > 0 ? (
-            order.items.map((i: any, index: number) => (
-              <View key={index} style={[styles.liveIndicatorRow, { marginBottom: 4 }]}>
-                {index === 0 ? (
-                  <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-                ) : (
-                  <View style={{ width: 8, height: 8 }} />
-                )}
-                <Text style={[styles.liveTitle, { flex: 1, lineHeight: 20 }]} numberOfLines={1}>
-                  {i.quantity}x {i.item.name}
+      <View style={[styles.liveHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }]} {...Platform.select({ web: { className: 'tracking-card-header' } })}>
+        <View style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2, flex: 1 }}>
+          <View style={{ width: '100%' }}>
+            {order?.items && order.items.length > 0 ? (
+              (order.items || []).map((i: any, index: number) => (
+                <View key={index} style={[styles.liveIndicatorRow, { marginBottom: 4 }]} {...Platform.select({ web: { className: 'tracking-indicator-row' } })}>
+                  {index === 0 ? (
+                    <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
+                  ) : (
+                    <View style={{ width: 8, height: 8 }} />
+                  )}
+                  <Text style={[styles.liveTitle, { flex: 1, lineHeight: 20 }]} numberOfLines={1}>
+                    {i.quantity}x {i.item.name}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.liveIndicatorRow} {...Platform.select({ web: { className: 'tracking-indicator-row' } })}>
+                <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
+                <Text style={[styles.liveTitle, { flex: 1 }]} numberOfLines={1}>
+                  Live Order Tracking
                 </Text>
               </View>
-            ))
-          ) : (
-            <View style={styles.liveIndicatorRow}>
-              <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-              <Text style={[styles.liveTitle, { flex: 1 }]} numberOfLines={1}>
-                Live Order Tracking
-              </Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.liveId, { marginLeft: 16 }]} numberOfLines={1}>ID: {order.id}</Text>
-      </View>
-
-      {/* Map Panel or Prep Panel */}
-      <View>
-        {renderMapPanel(['PREPARING', 'PLACED', 'ACCEPTED', 'READY'].includes(order.status))}
-        {['PREPARING', 'PLACED', 'ACCEPTED', 'READY'].includes(order.status) && renderPrepPanel()}
-      </View>
-
-      {/* ETA Details Box */}
-      <View style={styles.etaDashboard}>
-        <View style={styles.etaRow}>
-          <View>
-            <Text style={styles.etaHeading}>Estimated Delivery</Text>
-            <Text style={styles.etaTime}>{timeText}</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.etaHeading}>Distance Remaining</Text>
-            <Text style={styles.etaDist}>{distanceText}</Text>
-          </View>
-        </View>
-
-        {/* Dynamic horizontal tracker */}
-        <View style={styles.liveProgressTrack}>
-          <View style={[styles.liveProgressFill, { width: progressPercent as DimensionValue }]} />
-        </View>
-
-        {/* Milestone Labels */}
-        <View style={styles.milestoneRow}>
-          <Text style={[styles.milestoneLabel, order.status === 'PLACED' && styles.milestoneLabelActive]}>Placed</Text>
-          <Text style={[styles.milestoneLabel, order.status === 'ACCEPTED' && styles.milestoneLabelActive]}>Accepted</Text>
-          <Text style={[styles.milestoneLabel, order.status === 'PREPARING' && styles.milestoneLabelActive]}>Preparing</Text>
-          <Text style={[styles.milestoneLabel, order.status === 'READY' && styles.milestoneLabelActive]}>Ready</Text>
-          <Text style={[styles.milestoneLabel, order.status === 'OUT_FOR_DELIVERY' && styles.milestoneLabelActive]}>On Way</Text>
-          <Text style={[styles.milestoneLabel, order.status === 'DELIVERED' && styles.milestoneLabelActive]}>Delivered</Text>
-        </View>
-      </View>
-
-      <View style={styles.liveDivider} />
-
-      {/* Delivery Partner details */}
-      <View style={styles.riderPanel}>
-        <View style={styles.riderAvatarBox}>
-          <Ionicons name="person" size={18} color={Colors.primary} />
-        </View>
-        <View style={styles.riderDetailsCol}>
-          <View style={styles.riderNameRow}>
-            <Text style={styles.riderName}>Delivery Partner</Text>
-            <View style={styles.riderRatingPill}>
-              <Ionicons name="star" size={10} color="#FF6D00" />
-              <Text style={styles.riderRatingTxt}>4.9</Text>
-            </View>
-          </View>
-          <Text style={styles.riderStatus}>
-            {order.status === 'OUT_FOR_DELIVERY' ? '🛵 On the way to you' : order.status === 'DELIVERED' ? '✅ Delivered' : '👨‍🍳 Preparing your order'}
-          </Text>
-        </View>
-        <View style={styles.riderActionsRow}>
-          <TouchableOpacity
-            style={[styles.riderActionIconBtn, showChat && { backgroundColor: 'rgba(255,107,0,0.12)', borderColor: Colors.primary }]}
-            onPress={toggleChat}
-          >
-            <Ionicons
-              name={showChat ? 'chatbubbles' : 'chatbubble-ellipses-outline'}
-              size={17}
-              color={showChat ? Colors.primary : Colors.text}
-            />
-            {orderMessages.length > 0 && !showChat && (
-              <View style={styles.chatBadge}>
-                <Text style={styles.chatBadgeText}>{orderMessages.length}</Text>
-              </View>
             )}
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.riderActionIconBtn, { backgroundColor: 'rgba(255,107,0,0.12)' }]} onPress={handleCallRider}>
-            <Ionicons name="call-outline" size={17} color={Colors.primary} />
-          </TouchableOpacity>
+          </View>
+          <Text style={[styles.liveId, { marginLeft: 16 }]} numberOfLines={1}>ID: {order.id}</Text>
         </View>
+        {(visualStatus === 'CANCELLED' || visualStatus === 'PAYMENT_PENDING') && (activeOrders?.length || 0) > 1 && (
+          <TouchableOpacity onPress={onClear} style={{ padding: 4 }}>
+            <Ionicons name="close" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Chat Panel */}
-      {renderChatPanel()}
-
-      {/* Context pills */}
-      {(order.cookingInstructions || order.paymentMethod) && (
-        <View style={styles.extraPillsRow}>
-          {order.cookingInstructions && (
-            <View style={styles.extraPill}>
-              <Ionicons name="restaurant-outline" size={10} color={Colors.muted} />
-              <Text style={styles.extraPillTxt} numberOfLines={1}>Note: {order.cookingInstructions}</Text>
+      {visualStatus === 'CANCELLED' || visualStatus === 'PAYMENT_PENDING' ? (
+        <>
+          <View style={[styles.mapContainer, { height: undefined, minHeight: 220, padding: 32, alignItems: 'center', justifyContent: 'center' }]} {...Platform.select({ web: { className: 'tracking-map-container-failed' } })}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: visualStatus === 'CANCELLED' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 165, 0, 0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Ionicons name={visualStatus === 'CANCELLED' ? "close-circle" : "warning"} size={36} color={visualStatus === 'CANCELLED' ? "#EF4444" : "#FFA500"} />
             </View>
-          )}
-          <View style={[styles.extraPill, { backgroundColor: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.15)' }]}>
-            <Ionicons name="wallet-outline" size={10} color="#10B981" />
-            <Text style={[styles.extraPillTxt, { color: '#10B981' }]}>
-              {order.paymentMethod} • ₹{order.totalAmount.toFixed(0)}
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: visualStatus === 'CANCELLED' ? '#EF4444' : '#FFA500', marginBottom: 8, textAlign: 'center' }}>
+              {visualStatus === 'CANCELLED' 
+                ? (order.cancelReason === 'Rejected by restaurant' ? 'Order Rejected' : 'Order Cancelled') 
+                : 'Payment Incomplete'}
+            </Text>
+            <Text style={{ fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 20 }}>
+              {visualStatus === 'CANCELLED' 
+                ? (order.cancelReason === 'Rejected by restaurant' 
+                    ? 'The restaurant was unable to accept your order at this time.\nRefund will be processed if paid online.'
+                    : 'This order has been cancelled.\nRefund will be processed if paid online.')
+                : 'Your payment was not completed successfully.\nPlease try placing a new order.'}
             </Text>
           </View>
-        </View>
-      )}
 
-      {/* Rating & Dismiss tracking bar */}
-      {(order.status === 'DELIVERED' || order.status === 'CANCELLED') && (
-        <View style={styles.ratingContainer}>
-          {order.status === 'DELIVERED' && (
+          {/* Go to Home button OUTSIDE the minimap box */}
+          {(!activeOrders || activeOrders.length <= 1) && (
+            <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.card }}>
+              <TouchableOpacity 
+                style={[styles.liveDismissBtn, { backgroundColor: visualStatus === 'CANCELLED' ? '#EF4444' : '#FFA500', margin: 0, width: '100%' }]} 
+                onPress={onClear}
+                {...Platform.select({ web: { className: 'tracking-dismiss-btn' } })}
+              >
+                <Ionicons name="home" size={18} color="#FFF" />
+                <Text style={styles.liveDismissBtnTxt}>Go to Home</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Map Panel or Prep Panel */}
+          <View>
+            {renderMapPanel(['PREPARING', 'PLACED', 'ACCEPTED', 'READY', 'DELIVERED'].includes(visualStatus))}
+            {['PREPARING', 'PLACED', 'ACCEPTED', 'READY', 'DELIVERED'].includes(visualStatus) && renderPrepPanel()}
+          </View>
+
+          {/* ETA Details Box */}
+          <View style={styles.etaDashboard} {...Platform.select({ web: { className: 'tracking-eta-dashboard' } })}>
+            <View style={styles.etaRow}>
+              <View>
+                <Text style={styles.etaHeading}>Estimated Delivery</Text>
+                <Text style={styles.etaTime} {...Platform.select({ web: { className: 'tracking-eta-time' } })}>{timeText}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.etaHeading}>Distance Remaining</Text>
+                <Text style={styles.etaDist} {...Platform.select({ web: { className: 'tracking-eta-dist' } })}>{distanceText}</Text>
+              </View>
+            </View>
+
+            {/* Dynamic horizontal tracker */}
+            <View style={styles.liveProgressTrack} {...Platform.select({ web: { className: 'tracking-progress-bg' } })}>
+              <View style={[styles.liveProgressFill, { width: progressPercent as DimensionValue }]} {...Platform.select({ web: { className: 'tracking-progress-fill' } })} />
+            </View>
+
+            {/* Milestone Labels */}
+            <View style={styles.milestoneRow}>
+              <Text style={[styles.milestoneLabel, visualStatus === 'PLACED' && styles.milestoneLabelActive]} {...Platform.select({ web: { className: `tracking-milestone ${visualStatus === 'PLACED' ? 'tracking-milestone-active' : ''}` } })}>Placed</Text>
+              <Text style={[styles.milestoneLabel, visualStatus === 'ACCEPTED' && styles.milestoneLabelActive]} {...Platform.select({ web: { className: `tracking-milestone ${visualStatus === 'ACCEPTED' ? 'tracking-milestone-active' : ''}` } })}>Accepted</Text>
+              <Text style={[styles.milestoneLabel, visualStatus === 'PREPARING' && styles.milestoneLabelActive]} {...Platform.select({ web: { className: `tracking-milestone ${visualStatus === 'PREPARING' ? 'tracking-milestone-active' : ''}` } })}>Preparing</Text>
+              <Text style={[styles.milestoneLabel, visualStatus === 'READY' && styles.milestoneLabelActive]} {...Platform.select({ web: { className: `tracking-milestone ${visualStatus === 'READY' ? 'tracking-milestone-active' : ''}` } })}>Ready</Text>
+              <Text style={[styles.milestoneLabel, visualStatus === 'OUT_FOR_DELIVERY' && styles.milestoneLabelActive]} {...Platform.select({ web: { className: `tracking-milestone ${visualStatus === 'OUT_FOR_DELIVERY' ? 'tracking-milestone-active' : ''}` } })}>On Way</Text>
+              <Text style={[styles.milestoneLabel, visualStatus === 'DELIVERED' && styles.milestoneLabelActive]} {...Platform.select({ web: { className: `tracking-milestone ${visualStatus === 'DELIVERED' ? 'tracking-milestone-active' : ''}` } })}>Delivered</Text>
+            </View>
+          </View>
+
+          {/* Delivery Partner details & Chat — only visible once rider accepts and goes out for delivery */}
+          {(order.status === 'OUT_FOR_DELIVERY' || order.status === 'DELIVERED') && (
             <>
+              <View style={styles.liveDivider} />
+
+              <View style={styles.riderPanel} {...Platform.select({ web: { className: 'tracking-rider-panel' } })}>
+                <View style={styles.riderAvatarBox} {...Platform.select({ web: { className: 'tracking-rider-avatar' } })}>
+                  <Ionicons name="person" size={18} color={Colors.primary} />
+                </View>
+                <View style={styles.riderDetailsCol}>
+                  <View style={styles.riderNameRow}>
+                    <Text style={styles.riderName}>Delivery Partner</Text>
+                    <View style={styles.riderRatingPill} {...Platform.select({ web: { className: 'tracking-rider-rating' } })}>
+                      <Ionicons name="star" size={10} color="#FF6D00" />
+                      <Text style={styles.riderRatingTxt}>4.9</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.riderStatus}>
+                    {order.status === 'OUT_FOR_DELIVERY' ? '🛵 On the way to you' : '✅ Delivered'}
+                  </Text>
+                </View>
+                <View style={styles.riderActionsRow}>
+                  <TouchableOpacity
+                    style={[styles.riderActionIconBtn, showChat && { backgroundColor: 'rgba(255,107,0,0.12)', borderColor: Colors.primary }]}
+                    onPress={toggleChat}
+                  >
+                    <Ionicons
+                      name={showChat ? 'chatbubbles' : 'chatbubble-ellipses-outline'}
+                      size={17}
+                      color={showChat ? Colors.primary : Colors.text}
+                    />
+                    {orderMessages.length > 0 && !showChat && (
+                      <View style={styles.chatBadge}>
+                        <Text style={styles.chatBadgeText}>{orderMessages.length}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.riderActionIconBtn, { backgroundColor: 'rgba(255,107,0,0.12)' }]} onPress={handleCallRider}>
+                    <Ionicons name="call-outline" size={17} color={Colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Chat Panel */}
+              {renderChatPanel()}
+            </>
+          )}
+
+          {/* Context pills */}
+          {(order.cookingInstructions || order.paymentMethod) && (
+            <View style={styles.extraPillsRow} {...Platform.select({ web: { className: 'tracking-extra-pills-row' } })}>
+              {order.cookingInstructions && (
+                <View style={styles.extraPill} {...Platform.select({ web: { className: 'tracking-extra-pill' } })}>
+                  <Ionicons name="restaurant-outline" size={10} color={Colors.muted} />
+                  <Text style={styles.extraPillTxt} numberOfLines={1}>Note: {order.cookingInstructions}</Text>
+                </View>
+              )}
+              <View style={[styles.extraPill, { backgroundColor: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.15)' }]} {...Platform.select({ web: { className: 'tracking-extra-pill-success' } })}>
+                <Ionicons name="wallet-outline" size={10} color="#10B981" />
+                <Text style={[styles.extraPillTxt, { color: '#10B981' }]}>
+                  {order.paymentMethod} • ₹{order.totalAmount.toFixed(0)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Active Order Cancellation Option */}
+          {(order.status === 'PLACED' || order.status === 'PAYMENT_PENDING') && (
+            <View style={styles.cancelContainer}>
+              <TouchableOpacity 
+                style={styles.cancelBtn} 
+                {...Platform.select({ web: { className: 'tracking-cancel-btn' } })}
+                onPress={() => {
+                  Alert.alert(
+                    "Cancel Order",
+                    "Are you sure you want to cancel this order? This action cannot be undone.",
+                    [
+                      { text: "No, Keep Order", style: "cancel" },
+                      { 
+                        text: "Yes, Cancel Order", 
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            const { cancelOrderPayment } = useAppStore.getState();
+                            await cancelOrderPayment(order.id);
+                            Alert.alert("Order Cancelled", "Your order has been successfully cancelled.");
+                          } catch (e: any) {
+                            console.warn("Failed to cancel order:", e);
+                            Alert.alert("Error", "Failed to cancel order. Please try again.");
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="close-circle-outline" size={16} color="#EF4444" />
+                <Text style={styles.cancelBtnTxt}>Cancel Order</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Rating & Dismiss tracking bar */}
+          {order.status === 'DELIVERED' && (
+            <View style={styles.ratingContainer} {...Platform.select({ web: { className: 'tracking-rating-container' } })}>
               <Text style={styles.ratingTitle}>How was your food & delivery?</Text>
               <View style={styles.starsRow}>
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -660,29 +814,31 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
               {rating > 0 && (
                 <TextInput
                   style={styles.reviewInput}
+                  {...Platform.select({ web: { className: 'tracking-review-input' } })}
                   placeholder="Leave a review (optional)"
                   placeholderTextColor={Colors.muted}
                   value={reviewText}
                   onChangeText={setReviewText}
                 />
               )}
-            </>
+              <TouchableOpacity 
+                style={styles.liveDismissBtn} 
+                {...Platform.select({ web: { className: 'tracking-dismiss-btn' } })}
+                onPress={() => {
+                  if (rating > 0) {
+                    submitReview(order.id, rating, reviewText);
+                  }
+                  onClear();
+                }}
+              >
+                <Ionicons name="checkmark-done-circle" size={18} color="#FFF" />
+                <Text style={styles.liveDismissBtnTxt}>
+                  {rating > 0 ? "Submit & Dismiss" : "Dismiss Tracking"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
-          <TouchableOpacity 
-            style={[styles.liveDismissBtn, order.status === 'CANCELLED' && { backgroundColor: '#EF4444' }]} 
-            onPress={() => {
-              if (rating > 0 && order.status === 'DELIVERED') {
-                submitReview(order.id, rating, reviewText);
-              }
-              onClear();
-            }}
-          >
-            <Ionicons name="checkmark-done-circle" size={18} color="#FFF" />
-            <Text style={styles.liveDismissBtnTxt}>
-              {order.status === 'CANCELLED' ? "Dismiss" : (rating > 0 ? "Submit & Dismiss" : "Dismiss Tracking")}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        </>
       )}
     </View>
   );
@@ -690,7 +846,6 @@ export default function LiveTrackingCard({ order, onClear }: { order: any; onCle
 
 const styles = StyleSheet.create({
   liveCard: {
-    flex: 1,
     marginHorizontal: 16,
     marginTop: 16,
     marginBottom: 8,
@@ -710,6 +865,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,107,0,0.05)',
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+  },
+  cancelContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 4,
+    backgroundColor: Colors.card,
+  },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  cancelBtnTxt: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '700',
   },
   ratingTitle: {
     fontSize: 14,
@@ -777,9 +954,9 @@ const styles = StyleSheet.create({
   },
   recenterBtn: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 38,
+    bottom: 20,
+    left: 20,
+    width: 44,
     height: 38,
     borderRadius: 19,
     backgroundColor: 'rgba(28,28,30,0.85)',

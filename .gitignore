@@ -35,3 +35,10 @@ Thumbs.db
 *.zip
 *.tar.gz
 *.tgz
+*Backup/
+*Backup*/
+backup/
+*.py
+*.csv
+*.txt
+anjani-restaurant-firebase-adminsdk-fbsvc-fe6d70a99f.json

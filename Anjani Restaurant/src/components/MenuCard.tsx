@@ -1,3 +1,9 @@
+/**
+ * @file MenuCard.tsx
+ * @description An interactive, animated card component for displaying individual menu items.
+ * Includes features like "add to cart" functionality, quantity adjustment, and item details expansion.
+ */
+
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Image, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -5,21 +11,48 @@ import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Colors } from '../constants/Colors';
 import { MenuItem } from '../data/MenuData';
 
+/**
+ * Props for the MenuCard component.
+ */
 interface MenuCardProps {
+  /** The menu item data to display */
   item: MenuItem;
+  /** Current cart item data, if the item is in the cart */
   cartItem?: { quantity: number };
+  /** Callback fired when the "Add" or "+" button is pressed */
   onAdd: (item: MenuItem) => void;
+  /** Callback fired when the "-" button is pressed */
   onRemove: (item: MenuItem) => void;
+  /** The index of the item in the list (useful for staggered animations if needed) */
   index: number;
+  /** Whether the card's description is currently expanded to show full text */
   isExpanded: boolean;
+  /** Callback fired to toggle the expanded state of the card */
   onToggleExpand: () => void;
 }
 
+/**
+ * MenuCard Component
+ * 
+ * Displays a single menu item with its name, price, rating, and veg/non-veg indicator.
+ * Provides controls to add the item to the cart or adjust its quantity.
+ * Utilizes `react-native-reanimated` for smooth layout transitions when expanding/collapsing.
+ * Wrapped in `React.memo` with a custom comparison function to heavily optimize list rendering.
+ * 
+ * @param {MenuCardProps} props - The component props.
+ * @returns {React.JSX.Element} The rendered menu card.
+ */
 export const MenuCard = React.memo(function MenuCard({ item, cartItem, onAdd, onRemove, index, isExpanded, onToggleExpand }: MenuCardProps) {
+  /**
+   * Handles adding an item to the cart or incrementing its quantity.
+   */
   const handleAdd = () => {
     onAdd(item);
   };
 
+  /**
+   * Handles removing an item from the cart or decrementing its quantity.
+   */
   const handleRemove = () => {
     onRemove(item);
   };
@@ -102,14 +135,14 @@ export const MenuCard = React.memo(function MenuCard({ item, cartItem, onAdd, on
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    backgroundColor: '#161618',
-    marginHorizontal: 16,
-    marginVertical: 6,
-    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    backgroundColor: Colors.card,
+    marginHorizontal: Platform.OS === 'web' ? 12 : 16,
+    marginVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: Colors.border,
   },
   infoSection: {
     flex: 1,
@@ -122,10 +155,10 @@ const styles = StyleSheet.create({
   },
   actionBox: {
     width: 90,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255, 90, 0, 0.05)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255, 90, 0, 0.2)',
   },
   badgesRow: {
     flexDirection: 'row',
@@ -164,10 +197,10 @@ const styles = StyleSheet.create({
   },
   name: {
     color: Colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 6,
-    letterSpacing: -0.2,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 8,
+    letterSpacing: -0.1,
   },
   priceRatingRow: {
     flexDirection: 'row',
@@ -178,8 +211,8 @@ const styles = StyleSheet.create({
   },
   price: {
     color: Colors.text,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   ratingRowInline: {
     flexDirection: 'row',
@@ -193,8 +226,8 @@ const styles = StyleSheet.create({
   },
   desc: {
     color: Colors.muted,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 20,
   },
   soldOutBadge: {
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -224,8 +257,8 @@ const styles = StyleSheet.create({
   },
   qtyNum: {
     color: Colors.text,
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     textAlign: 'center',
   },
   addBtn: {
@@ -236,7 +269,7 @@ const styles = StyleSheet.create({
   addBtnText: {
     color: Colors.primary,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
 

@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
-  apiKey:            process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "YOUR_API_KEY_HERE",
+  apiKey:            process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyDgZbCT3tliCLwY5KwfgkuDuFeW9qSdoeQ",
   authDomain:        process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "anjani-restaurant.firebaseapp.com",
   projectId:         process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "anjani-restaurant",
   storageBucket:     process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "anjani-restaurant.firebasestorage.app",

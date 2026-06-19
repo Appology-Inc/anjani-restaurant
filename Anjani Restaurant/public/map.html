@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1C1C1E; }
+    
+    /* Premium custom marker wrappers */
+    .marker-wrapper {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .pulse-ring {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      background-color: rgba(59, 130, 246, 0.4);
+      border-radius: 50%;
+      animation: pulse 1.5s ease-out infinite;
+      z-index: 1;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+    
+    .custom-marker {
+      width: 30px;
+      height: 30px;
+      border-radius: 15px;
+      border: 2px solid white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+      position: relative;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    const map = L.map('map', { zoomControl: true });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OSM &copy; CARTO'
+    }).addTo(map);
+
+    map.setView([17.0765705, 82.1340028], 14);
+
+    let markers = [];
+    let polylines = [];
+    let suppressEvents = false;
+
+    // Relay user drag events to parent
+    map.on('movestart', () => { if (!suppressEvents) window.parent.postMessage({ type: 'onRegionChange' }, '*'); });
+    map.on('moveend', () => {
+      if (suppressEvents) return;
+      const c = map.getCenter();
+      window.parent.postMessage({ type: 'onRegionChangeComplete', region: { latitude: c.lat, longitude: c.lng } }, '*');
+    });
+
+    function clearOverlays() {
+      markers.forEach(m => map.removeLayer(m));
+      polylines.forEach(p => map.removeLayer(p));
+      markers = [];
+      polylines = [];
+    }
+
+    function makeIcon(type) {
+      let color = '#FF6B00';
+      let emoji = '📍';
+      let pulseHtml = '';
+      
+      if (type === 'restaurant') {
+        color = '#10B981'; // Green circle
+        emoji = '🍽️';      // Restaurant plate/knife/fork emoji
+      } else if (type === 'customer' || type === 'home') {
+        color = '#FF6B00'; // Orange circle
+        emoji = '🏠';      // House emoji
+      } else if (type === 'rider') {
+        color = '#3B82F6'; // Blue circle
+        emoji = '🛵';      // Scooter emoji
+        pulseHtml = '<div class="pulse-ring"></div>';
+      }
+
+      const html = `
+        <div class="marker-wrapper">
+          ${pulseHtml}
+          <div class="custom-marker" style="background-color: ${color};">${emoji}</div>
+        </div>
+      `;
+
+      return L.divIcon({
+        className: 'custom-leaflet-icon',
+        html: html,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -18]
+      });
+    }
+
+    function drawOverlays(data) {
+      clearOverlays();
+      if (data.polyline && data.polyline.length > 1) {
+        const ll = data.polyline.map(p => [p.latitude, p.longitude]);
+        polylines.push(L.polyline(ll, { color: '#FF5A00', weight: 4, dashArray: '8, 12', opacity: 0.8 }).addTo(map));
+      }
+      if (data.markers && data.markers.length > 0) {
+        data.markers.forEach(m => {
+          const mk = L.marker([m.latitude, m.longitude], { icon: makeIcon(m.type) }).addTo(map);
+          if (m.title) mk.bindPopup(m.title);
+          markers.push(mk);
+        });
+      }
+    }
+
+    function applyFull(data) {
+      if (!data) return;
+      drawOverlays(data);
+
+      // Auto-fit view
+      const bounds = [];
+      if (data.markers) data.markers.forEach(m => bounds.push([m.latitude, m.longitude]));
+      if (data.polyline) data.polyline.forEach(p => bounds.push([p.latitude, p.longitude]));
+
+      suppressEvents = true;
+      if (bounds.length > 1) {
+        map.fitBounds(bounds, { padding: [50, 50], animate: false });
+      } else if (bounds.length === 1) {
+        map.setView(bounds[0], 15, { animate: false });
+      } else if (data.region) {
+        map.setView([data.region.latitude, data.region.longitude], data.zoom || 15, { animate: false });
+      }
+      setTimeout(() => { suppressEvents = false; }, 300);
+    }
+
+    // Init from URL hash
+    try {
+      const h = decodeURIComponent(window.location.hash.substring(1));
+      if (h) applyFull(JSON.parse(h));
+    } catch(e) {}
+
+    // Listen for messages from parent
+    window.addEventListener('message', function(e) {
+      const d = e.data;
+      if (!d) return;
+
+      // Full update (markers + polyline + auto-fit)
+      if (d.type === 'mapUpdate') applyFull(d.payload);
+
+      // Overlays only (no view change)
+      if (d.type === 'updateOverlays') drawOverlays(d);
+
+      // Explicit view change (recenter, GPS)
+      if (d.type === 'setView') {
+        suppressEvents = true;
+        map.setView([d.lat, d.lng], d.zoom || 16, { animate: false });
+        // Immediately notify parent of new center
+        window.parent.postMessage({ type: 'onRegionChangeComplete', region: { latitude: d.lat, longitude: d.lng } }, '*');
+        suppressEvents = false;
+      }
+    });
+  </script>
+</body>
+</html>

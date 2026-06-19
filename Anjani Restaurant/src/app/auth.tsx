@@ -1,4 +1,12 @@
+/**
+ * @file auth.tsx
+ * @description Authentication screen providing sign-in and sign-up functionality.
+ * Features a cinematic animated background, dynamic keyboard handling, and 
+ * integration with Firebase Authentication.
+ */
+
 import React, { useEffect, useRef, useState } from 'react';
+import { AppologyBrand } from '@/components/AppologyBrand';
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions, Animated, TextInput, KeyboardAvoidingView, Platform, Modal, ScrollView, ActivityIndicator, Keyboard, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,13 +18,44 @@ import { useAppStore } from '../state/AppStore';
 import { auth, isFirebaseConfigured } from '../config/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFonts } from 'expo-font';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: INITIAL_WIDTH } = Dimensions.get('window');
 
-// Responsive scaling helper
-const scale = Math.min(SCREEN_WIDTH / 375, 1.2);
-const normalize = (size: number) => Math.round(size * scale);
+// Fluid scaling helper for Web (clamp) & Native (scale)
+const scale = INITIAL_WIDTH > 0 ? Math.min(INITIAL_WIDTH / 375, 1.2) : 1;
 
+/**
+ * Normalizes a size based on screen width using the computed scale factor.
+ * 
+ * @param {number} size - The base size to scale.
+ * @returns {number} The normalized pixel value.
+ */
+export const normalize = (size: number) => Math.round(size * scale);
+
+/**
+ * Creates a fluid size value depending on the platform.
+ * Returns a CSS `clamp()` string for web, and a normalized number for native.
+ * 
+ * @param {number} min - Minimum value in pixels.
+ * @param {number} prefVw - Preferred value in viewport width (vw) for web.
+ * @param {number} max - Maximum value in pixels for web.
+ * @returns {any} Fluid size value suitable for the current platform.
+ */
+export const fluid = (min: number, prefVw: number, max: number): any => {
+  return Platform.OS === 'web' 
+    ? `clamp(${min}px, ${prefVw}vw, ${max}px)` 
+    : normalize(min);
+};
+
+/**
+ * AnimatedDeliveryTrack Component
+ * 
+ * Renders a decorative track with a moving icon that travels left to right.
+ * The icon cycles through three phases: Food (restaurant) -> Rider (bicycle) -> Home.
+ * 
+ * @returns {React.JSX.Element} The animated track component.
+ */
 function AnimatedDeliveryTrack() {
   const travelAnim = useRef(new Animated.Value(0)).current;
   const [iconPhase, setIconPhase] = useState<'food' | 'rider' | 'home'>('food');
@@ -57,6 +96,10 @@ function AnimatedDeliveryTrack() {
     };
   }, []);
 
+  const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+  });
+
   const trackWidth     = normalize(120);
   const containerSize  = normalize(18);
 
@@ -86,18 +129,29 @@ function AnimatedDeliveryTrack() {
   return (
     <View style={styles.trackContainer}>
       <View style={styles.trackRoad} />
-      <Animated.View
-        style={[
-          styles.travelingIcon,
-          { opacity: iconOpacity, transform: [{ translateX }, { scale: iconScale }] },
-        ]}
-      >
-        <Ionicons name={getIconName()} size={normalize(13)} color="#FF6B00" />
-      </Animated.View>
+      {fontsLoaded && (
+        <Animated.View
+          style={[
+            styles.travelingIcon,
+            { opacity: iconOpacity, transform: [{ translateX }, { scale: iconScale }] },
+          ]}
+        >
+          <Ionicons name={getIconName()} size={normalize(13)} color="#FF6B00" />
+        </Animated.View>
+      )}
     </View>
   );
 }
 
+/**
+ * AuthScreen Component
+ * 
+ * Main authentication view allowing users to sign up or sign in.
+ * Includes complex cinematic and keyboard-driven animations, fallback mock login
+ * (if Firebase is unconfigured), and conditional routing based on location availability.
+ * 
+ * @returns {React.JSX.Element} The authentication screen.
+ */
 export default function AuthScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -223,6 +277,10 @@ export default function AuthScreen() {
       setError('Please fill in all fields');
       return;
     }
+    if (name.trim().length < 2) {
+      setError('Please enter a valid name');
+      return;
+    }
     setLoading(true);
     setError('');
     
@@ -267,15 +325,15 @@ export default function AuthScreen() {
       router.replace('/address-setup');
     } catch (err: any) {
       console.error('Sign up error:', err);
-      let msg = 'An unexpected error occurred. Please try again.';
+      let msg = 'An unexpected error occurred.\nPlease try again.';
       if (err.code === 'auth/email-already-in-use') {
-        msg = 'This email is already registered. Please sign in instead.';
+        msg = 'This email is already registered.\nPlease sign in instead.';
       } else if (err.code === 'auth/invalid-email') {
         msg = 'Please enter a valid email address.';
       } else if (err.code === 'auth/weak-password') {
         msg = 'Password must be at least 6 characters.';
       } else if (err.code === 'auth/network-request-failed') {
-        msg = 'Network error. Please check your internet connection.';
+        msg = 'Network error.\nPlease check your internet connection.';
       } else if (err.message) {
         msg = err.message.replace(/^Firebase:\s*/, '').replace(/\s*\(auth\/.*\)\.?$/, '');
       }
@@ -364,17 +422,17 @@ export default function AuthScreen() {
       }
     } catch (err: any) {
       console.error('Sign in error:', err);
-      let msg = 'An unexpected error occurred. Please try again.';
+      let msg = 'An unexpected error occurred.\nPlease try again.';
       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        msg = 'Incorrect email or password. Please try again.';
+        msg = 'Incorrect email or password.\nPlease try again.';
       } else if (err.code === 'auth/wrong-password') {
-        msg = 'Incorrect password. Please try again.';
+        msg = 'Incorrect password.\nPlease try again.';
       } else if (err.code === 'auth/invalid-email') {
         msg = 'Please enter a valid email address.';
       } else if (err.code === 'auth/too-many-requests') {
-        msg = 'Too many failed attempts. Please try again later.';
+        msg = 'Too many failed attempts.\nPlease try again later.';
       } else if (err.code === 'auth/network-request-failed') {
-        msg = 'Network error. Please check your internet connection.';
+        msg = 'Network error.\nPlease check your internet connection.';
       } else if (err.message) {
         msg = err.message.replace(/^Firebase:\s*/, '').replace(/\s*\(auth\/.*\)\.?$/, '');
       }
@@ -412,8 +470,8 @@ export default function AuthScreen() {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingTop: Math.max(insets.top, 20),
-              paddingBottom: Math.max(insets.bottom, 20)
+              paddingTop: Platform.OS === 'web' ? 'calc(20px + env(safe-area-inset-top))' : Math.max(insets.top, 20),
+              paddingBottom: Platform.OS === 'web' ? 'calc(20px + env(safe-area-inset-bottom))' : Math.max(insets.bottom, 20)
             }
           ]}
           showsVerticalScrollIndicator={false}
@@ -433,7 +491,16 @@ export default function AuthScreen() {
               }
             ]}
           >
-            {/* Cinematic (Two-line) Title */}
+            <TouchableOpacity 
+              activeOpacity={0.8}
+              style={{ width: '100%', alignItems: 'center' }}
+              onPress={() => {
+                if (Platform.OS === 'web' && (window as any).triggerInstallPrompt) {
+                  (window as any).triggerInstallPrompt();
+                }
+              }}
+            >
+              {/* Cinematic (Two-line) Title */}
             <Animated.View style={{ opacity: brandCinematicOpacity, alignItems: 'center', width: '100%' }}>
               <Text style={styles.title}>ANJANI</Text>
               <Text style={styles.titleSecond}>RESTAURANT</Text>
@@ -457,6 +524,7 @@ export default function AuthScreen() {
                 </Animated.Text>
               </View>
             </Animated.View>
+            </TouchableOpacity>
           </Animated.View>
 
           {/* Fade In & Slide Up Auth Form */}
@@ -554,7 +622,11 @@ export default function AuthScreen() {
               </View>
 
               {error ? (
-                <Text style={styles.errorText}>{error}</Text>
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle-outline" size={normalize(16)} color="#FF453A" style={{ marginRight: normalize(6) }} />
+                  <Text style={styles.errorText}>{error}</Text>
+                  <View style={{ width: normalize(16 + 6) }} />
+                </View>
               ) : null}
 
               <TouchableOpacity 
@@ -573,6 +645,57 @@ export default function AuthScreen() {
             </View>
 
           </Animated.View>
+
+          {/* Legal Footer */}
+          <View style={{ alignItems: 'center', marginTop: normalize(16), paddingHorizontal: normalize(20) }}>
+            <Text style={{ fontSize: normalize(11), color: '#888', textAlign: 'center', lineHeight: normalize(16) }}>
+              By signing in or signing up, you agree to our{'\n'}
+              <Text 
+                style={{ color: '#FF6D00', textDecorationLine: 'underline' }}
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    window.open('https://anjanirestaurant.web.app/terms.html', '_blank');
+                  } else {
+                    import('react-native').then(({ Linking }) => Linking.openURL('https://anjanirestaurant.web.app/terms.html'));
+                  }
+                }}
+              >
+                Terms of Service
+              </Text>
+              {' '}and{' '}
+              <Text 
+                style={{ color: '#FF6D00', textDecorationLine: 'underline' }}
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    window.open('https://anjanirestaurant.web.app/privacy.html', '_blank');
+                  } else {
+                    import('react-native').then(({ Linking }) => Linking.openURL('https://anjanirestaurant.web.app/privacy.html'));
+                  }
+                }}
+              >
+                Privacy Policy
+              </Text>.
+            </Text>
+          </View>
+
+          {/* Appology Footer Badge */}
+          <View style={{ marginTop: 'auto', paddingTop: normalize(40), alignItems: 'center' }}>
+            <Text style={{ fontSize: normalize(12), color: '#AAA', fontWeight: '500' }}>
+              Powered by{' '}
+              <Text 
+                style={{ color: '#FF6B00', fontWeight: '800', fontStyle: 'italic',  }}
+                onPress={() => {
+                  if (Platform.OS === 'web') {
+                    window.open('https://appology-inc.github.io/', '_blank', 'noopener,noreferrer');
+                  } else {
+                    import('react-native').then(({ Linking }) => Linking.openURL('https://appology-inc.github.io/'));
+                  }
+                }}
+              >
+                <AppologyBrand />
+              </Text>
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -583,6 +706,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    overflow: 'hidden',
   },
   bgImage: {
     ...StyleSheet.absoluteFillObject,
@@ -602,30 +726,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: normalize(34),
+    fontSize: fluid(28, 8, 48),
     fontWeight: '800',
     color: '#FFF',
-    letterSpacing: normalize(6),
+    letterSpacing: fluid(4, 1.5, 8),
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 10,
     textAlign: 'center',
   },
   titleSecond: {
-    fontSize: normalize(30),
+    fontSize: fluid(22, 6, 40),
     fontWeight: '300',
     color: '#FFF',
-    letterSpacing: normalize(4),
+    letterSpacing: fluid(2, 1, 6),
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 10,
     textAlign: 'center',
   },
   compactTitle: {
-    fontSize: normalize(24),
+    fontSize: fluid(20, 5, 36),
     fontWeight: '800',
     color: '#FFF',
-    letterSpacing: normalize(4),
+    letterSpacing: fluid(2, 1, 6),
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 10,
@@ -654,10 +778,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'absolute',
     left: 0,
-    shadowColor: '#FF6B00',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.85,
-    shadowRadius: 5,
   },
   taglineWrapper: {
     height: 20, 
@@ -666,22 +786,22 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   tagline: {
-    fontSize: normalize(12),
+    fontSize: fluid(10, 2.5, 16),
     fontWeight: '500',
     color: '#E0E0E0',
-    letterSpacing: normalize(3),
+    letterSpacing: fluid(2, 0.5, 4),
     textTransform: 'uppercase',
     textAlign: 'center',
   },
   actionBox: {
     width: '100%',
-    maxWidth: 400, 
+    maxWidth: fluid(320, 85, 460), 
     alignSelf: 'center',
-    backgroundColor: 'rgba(20, 20, 20, 0.6)',
-    borderRadius: normalize(20),
-    padding: normalize(18),
+    backgroundColor: Colors.card,
+    borderRadius: fluid(16, 4, 28),
+    padding: fluid(16, 4, 28),
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: Colors.border,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -747,11 +867,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+    borderRadius: normalize(8),
+    paddingVertical: normalize(10),
+    paddingHorizontal: normalize(14),
+    marginTop: normalize(4),
+  },
   errorText: {
-    color: '#FF3B30',
+    color: '#FF453A',
     fontSize: normalize(12),
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: normalize(4),
+    flex: 1,
   },
 });

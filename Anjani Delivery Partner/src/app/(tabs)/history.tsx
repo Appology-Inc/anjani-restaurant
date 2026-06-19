@@ -1,16 +1,23 @@
 import React from 'react';
-import { StyleSheet, Text, View, FlatList } from 'react-native';
+import { AppologyBrand } from '@/components/AppologyBrand';
+import { StyleSheet, Text, View, ScrollView, useWindowDimensions, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore, ActiveOrder } from '../../state/AppStore';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import AnimatedReanimated, { FadeInDown } from 'react-native-reanimated';
 
-const scale = Math.min(require('react-native').Dimensions.get('window').width / 375, 1.2);
-const normalize = (size: number) => Math.round(size * scale);
+const normalize = (size: number) => {
+  if (Platform.OS === 'web') return size;
+  const { width } = require('react-native').Dimensions.get('window');
+  const scale = Math.min((width || 375) / 375, 1.2);
+  return Math.round(size * scale);
+};
 
 export default function HistoryTab() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width >= 768;
   const systemOrders = useAppStore(state => state.systemOrders);
   const currentUser = useAppStore(state => state.currentUser);
 
@@ -49,7 +56,7 @@ export default function HistoryTab() {
       <View style={styles.cardBody}>
         <View style={styles.row}>
           <Ionicons name="person-outline" size={16} color={Colors.muted} style={styles.icon} />
-          <Text style={styles.infoTxt}>Customer #{item.id.slice(-4)}</Text>
+          <Text style={styles.infoTxt}>{item.customerName || `Customer #${item.id.slice(-4)}`}</Text>
         </View>
         <View style={styles.row}>
           <Ionicons name="location-outline" size={16} color={Colors.muted} style={styles.icon} />
@@ -58,20 +65,31 @@ export default function HistoryTab() {
         <View style={styles.row}>
           <Ionicons name="time-outline" size={16} color={Colors.muted} style={styles.icon} />
           <Text style={styles.infoTxt}>
-            {new Date(item.createdAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            {new Date(item.createdAt || Date.now()).toLocaleTimeString('en-IN', {hour: '2-digit', minute:'2-digit', hour12: true})}
           </Text>
         </View>
+
+        {item.items && item.items.length > 0 && (
+          <View style={styles.itemsContainer}>
+            {item.items.map((ordItem, idx) => (
+              <View key={ordItem.item?.id || idx.toString()} style={styles.itemRow}>
+                <Text style={styles.itemQty}>x{ordItem.quantity}</Text>
+                <Text style={styles.itemName} numberOfLines={1}>{ordItem.item?.name}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     </AnimatedReanimated.View>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Today's Deliveries</Text>
+    <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 'env(safe-area-inset-top)' : insets.top }]}>
+      <View style={[styles.header, isLargeScreen && { paddingHorizontal: 24, paddingVertical: 24, borderBottomWidth: 0 }]}>
+        <Text style={[styles.headerTitle, isLargeScreen && { fontSize: 24 }]}>Today's Deliveries</Text>
       </View>
 
-      <View style={styles.statsContainer}>
+      <View style={[styles.statsContainer, isLargeScreen && { paddingHorizontal: 24, paddingBottom: 24 }]}>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Completed</Text>
           <Text style={styles.statValue}>{deliveredToday.length}</Text>
@@ -82,21 +100,38 @@ export default function HistoryTab() {
         </View>
       </View>
 
-      {deliveredToday.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="bicycle-outline" size={64} color={Colors.surface} />
-          <Text style={styles.emptyTxt}>No deliveries completed today.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={deliveredToday}
-          keyExtractor={item => item.id}
-          renderItem={renderOrder}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListFooterComponent={<View style={{ height: 160 }} />}
-        />
-      )}
+      <ScrollView
+        contentContainerStyle={[styles.listContent, { flexGrow: 1 }, isLargeScreen && { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {deliveredToday.length === 0 ? (
+          <View style={[styles.emptyState, { flex: 1 }]}>
+            <Ionicons name="bicycle-outline" size={64} color={Colors.surface} />
+            <Text style={styles.emptyTxt}>No deliveries completed today.</Text>
+          </View>
+        ) : (
+          deliveredToday.map((item, index) => (
+            <View key={item?.id || index.toString()} style={[isLargeScreen && { width: '33.33%', paddingHorizontal: 8, marginBottom: 8 }]}>
+              {renderOrder({ item, index })}
+            </View>
+          ))
+        )}
+
+        {/* Appology Footer Badge */}
+        {!isLargeScreen && (
+          <View style={{ marginTop: 'auto', paddingTop: 30, paddingBottom: 10, alignItems: 'center' }}>
+            <Text style={{ fontSize: 12, color: Colors.muted, fontWeight: '500' }}>
+              Powered by{' '}
+              <Text 
+                style={{ color: '#FF6B00', fontWeight: '800', fontStyle: 'italic',  }}
+                onPress={() => Linking.openURL('https://appology-inc.github.io/')}
+              >
+                <AppologyBrand />
+              </Text>
+            </Text>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -106,8 +141,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark,
     width: '100%',
-    maxWidth: 600,
-    alignSelf: 'center',
   },
   header: {
     paddingHorizontal: 20,
@@ -157,7 +190,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 20,
     paddingTop: 0,
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
   card: {
     backgroundColor: Colors.surface,
@@ -211,6 +244,30 @@ const styles = StyleSheet.create({
   infoTxt: {
     color: Colors.muted,
     fontSize: normalize(14),
+    flex: 1,
+  },
+  itemsContainer: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 10,
+    marginTop: 8,
+    gap: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  itemQty: {
+    fontSize: normalize(12),
+    fontWeight: '800',
+    color: '#FF6B00',
+  },
+  itemName: {
+    fontSize: normalize(12),
+    color: '#E0E0E0',
     flex: 1,
   },
 });

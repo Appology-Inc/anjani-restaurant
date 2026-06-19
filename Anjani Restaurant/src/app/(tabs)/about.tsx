@@ -1,5 +1,12 @@
+/**
+ * @file about.tsx
+ * @description About screen for Anjani Restaurant.
+ * Displays restaurant information, location with an interactive map,
+ * and contact details. Features a custom animated background.
+ */
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform, Linking, ActivityIndicator, Animated } from 'react-native';
+import { AppologyBrand } from '@/components/AppologyBrand';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform, Linking, ActivityIndicator, Animated, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +17,14 @@ const RESTAURANT_COORDS = { latitude: 17.0765705, longitude: 82.1340028 };
 const RESTAURANT_ADDRESS = "Sri Venkateswara Temple, Street Cinema Center, Peddapuram, Andhra Pradesh 533437";
 const RESTAURANT_PHONE = "+91 90327 56266";
 
+/**
+ * AboutScreen Component
+ * 
+ * Renders the about page including restaurant details, operational hours,
+ * contact information, and an interactive map showing the restaurant's location.
+ * 
+ * @returns {React.ReactElement} The rendered About screen.
+ */
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
@@ -37,28 +52,49 @@ export default function AboutScreen() {
 
     (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const location = await Location.getCurrentPositionAsync({});
-          setUserLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          });
+        if (Platform.OS === 'web') {
+          // Use native browser geolocation (expo-location hangs on web)
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              pos => {
+                setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+              },
+              () => { /* silently fail */ },
+              { timeout: 8000, enableHighAccuracy: true, maximumAge: 30000 }
+            );
+          }
+        } else {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const location = await Location.getCurrentPositionAsync({});
+            setUserLocation({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
+          }
         }
       } catch (e) {
         console.warn('Location permission denied or failed', e);
-      } finally {
-        // Location fetched
       }
     })();
 
     return () => animation.stop();
   }, []);
 
+  /**
+   * Opens the device's native map application or browser
+   * to provide directions to the restaurant from the current location.
+   */
   const handleGetDirections = () => {
     const scheme = Platform.select({ ios: 'maps://0,0?q=', android: 'geo:0,0?q=' });
     const latLng = `${RESTAURANT_COORDS.latitude},${RESTAURANT_COORDS.longitude}`;
     const label = "Anjani Restaurant";
+    
+    if (Platform.OS === 'web') {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${latLng}`, '_blank');
+      return;
+    }
+
     const url = Platform.select({
       ios: `${scheme}${label}@${latLng}`,
       android: `${scheme}${latLng}(${label})`
@@ -72,13 +108,66 @@ export default function AboutScreen() {
     }
   };
 
-  const handleRecenter = () => {
-    mapRef.current?.animateToRegion({
-      latitude: RESTAURANT_COORDS.latitude,
-      longitude: RESTAURANT_COORDS.longitude,
-      latitudeDelta: 0.05,
-      longitudeDelta: 0.05,
-    }, 1000);
+  /**
+   * Recenters the map view on the user's current location.
+   * If the location is unavailable, it falls back to the restaurant's location.
+   */
+  const handleRecenter = async () => {
+    let loc = userLocation;
+    if (!loc) {
+      try {
+        if (Platform.OS === 'web') {
+          loc = await new Promise((resolve) => {
+            if (!navigator.geolocation) { resolve(null); return; }
+            navigator.geolocation.getCurrentPosition(
+              pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+              () => {
+                // Fallback to low accuracy
+                navigator.geolocation.getCurrentPosition(
+                  pos2 => resolve({ latitude: pos2.coords.latitude, longitude: pos2.coords.longitude }),
+                  () => resolve(null),
+                  { timeout: 8000, enableHighAccuracy: false }
+                );
+              },
+              { timeout: 15000, enableHighAccuracy: true, maximumAge: 10000 }
+            );
+          });
+          if (loc) setUserLocation(loc);
+        } else {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const position = await Location.getCurrentPositionAsync({});
+            loc = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+            setUserLocation(loc);
+          }
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    if (loc) {
+      mapRef.current?.animateToRegion({
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }, 1000);
+    } else {
+      if (Platform.OS === 'web') {
+        Alert.alert(
+          "Location Access Offline",
+          "We couldn't fetch your location. Please check your browser's location settings and allow location access."
+        );
+      }
+      // Fallback to restaurant if location fails
+      mapRef.current?.animateToRegion({
+        latitude: RESTAURANT_COORDS.latitude,
+        longitude: RESTAURANT_COORDS.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      }, 1000);
+    }
   };
 
   const bgScale = animValue.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] });
@@ -93,6 +182,8 @@ export default function AboutScreen() {
         style={[
           StyleSheet.absoluteFill, 
           { 
+            width: '100%',
+            height: '100%',
             transform: [
               { scale: bgScale },
               { translateX: bgTranslateX },
@@ -104,11 +195,12 @@ export default function AboutScreen() {
         resizeMode="cover"
       />
 
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 16 }]}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? 'calc(28px + env(safe-area-inset-top))' : Math.max(insets.top, 12) + 16 }]}>
         <Text style={styles.pageTitle}>About Us</Text>
       </View>
       
-      <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }} showsVerticalScrollIndicator={false}>
+      <View style={{ flex: 1, alignSelf: 'center', width: '100%', maxWidth: 800 }}>
+        <ScrollView style={styles.scrollArea} contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 'calc(20px + env(safe-area-inset-bottom))' : insets.bottom + 20 }} showsVerticalScrollIndicator={false}>
         {/* Brand Hero */}
         <View style={styles.heroSection}>
           <Text style={styles.restaurantName}>Anjani Restaurant</Text>
@@ -140,14 +232,6 @@ export default function AboutScreen() {
               <Text style={styles.infoTitle}>Contact</Text>
               <Text style={styles.infoDesc}>{RESTAURANT_PHONE}</Text>
             </View>
-            <TouchableOpacity 
-                style={styles.actionBtn} 
-                onPress={() => {
-                    Linking.openURL(`tel:${RESTAURANT_PHONE.replace(/ /g, '')}`);
-                }}
-            >
-              <Ionicons name="call-outline" size={16} color={Colors.white} />
-            </TouchableOpacity>
           </View>
 
           <View style={styles.divider} />
@@ -189,8 +273,24 @@ export default function AboutScreen() {
             <Ionicons name="navigate" size={18} color={Colors.white} />
             <Text style={styles.directionsTxt}>Get Directions</Text>
           </TouchableOpacity>
-        </View>
-      </ScrollView>
+          </View>
+          
+          {/* Tech Partner Card */}
+          <View style={styles.partnerCard}>
+            <Text style={styles.partnerTitle}>Technology Partner</Text>
+            <Text style={styles.partnerDesc}>
+              Designed and Developed by{' '}
+              <Text 
+                style={[styles.partnerBrand, {  }]}
+                onPress={() => Linking.openURL('https://appology-inc.github.io/')}
+              >
+                <AppologyBrand />
+              </Text>
+            </Text>
+            <Text style={styles.partnerTagline}>Empowering businesses with next-generation software.</Text>
+          </View>
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -357,8 +457,8 @@ const styles = StyleSheet.create({
   recenterFab: {
     position: 'absolute',
     top: 16,
-    right: 16,
-    width: 40,
+    left: 16,
+    width: 44,
     height: 40,
     borderRadius: 20,
     backgroundColor: Colors.surface,
@@ -372,5 +472,40 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
     zIndex: 10,
+  },
+  partnerCard: {
+    marginHorizontal: 16,
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 107, 0, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.2)',
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  partnerTitle: {
+    color: Colors.muted,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  partnerDesc: {
+    color: Colors.text,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  partnerBrand: {
+    color: Colors.primary,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  partnerTagline: {
+    color: Colors.muted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

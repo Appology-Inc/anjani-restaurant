@@ -1,5 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, Platform, SectionList, Modal, TouchableWithoutFeedback, ScrollView } from 'react-native';
+/**
+ * @file index.tsx
+ * @description Main menu screen for Anjani Restaurant.
+ * Displays categorised menu items, search functionality, veg-only filter,
+ * floating cart status, and active order tracking banners.
+ */
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, Platform, SectionList, Modal, TouchableWithoutFeedback, ScrollView, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -32,6 +38,15 @@ const CategoryEmojis: Record<string, string> = {
   "Snacks": "🍟"
 };
 
+/**
+ * ClosedPremiumBanner Component
+ * 
+ * Displays an animated banner when the restaurant is closed or offline.
+ * 
+ * @param {Object} props - The component props.
+ * @param {string} props.reason - The reason for the restaurant being closed.
+ * @returns {React.ReactElement} The rendered banner.
+ */
 const ClosedPremiumBanner = ({ reason }: { reason: string }) => {
   const pulse = useSharedValue(0);
 
@@ -84,6 +99,15 @@ const ClosedPremiumBanner = ({ reason }: { reason: string }) => {
   );
 };
 
+/**
+ * MenuScreen Component
+ * 
+ * Main screen of the application displaying the restaurant's menu.
+ * Features include searching, category filtering, a vegetarian toggle,
+ * user greeting, active order tracking banners, and a floating cart summary.
+ * 
+ * @returns {React.ReactElement} The rendered Menu screen.
+ */
 export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -95,17 +119,56 @@ export default function MenuScreen() {
   const [activeCat, setActiveCat] = useState("All");
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const { width } = useWindowDimensions();
+  const isWideScreen = width >= 600;
+  const numColumns = isWideScreen ? Math.max(2, Math.floor(width / 380)) : 1;
+
+  // Inject Owner Dashboard brand animation CSS directly into DOM (bypasses Metro CSS bundler)
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const styleId = 'brand-name-animation-styles';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&display=swap');
+          .brand-name {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(120deg, #FF6B00 0%, #FFD180 25%, #FFF 50%, #FFD180 75%, #FF6B00 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shinyBrandText 4s linear infinite;
+            display: inline-block;
+            font-weight: 800;
+            font-size: ${isWideScreen ? '28px' : '23px'};
+            letter-spacing: -0.5px;
+            padding-right: 6px;
+          }
+          @keyframes shinyBrandText {
+            0% { background-position: 0% center; }
+            100% { background-position: -200% center; }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  }, []);
 
   // Collapse description on search or filter change
   useEffect(() => {
     setExpandedItemId(null);
   }, [searchQuery, vegOnly, activeCat]);
 
-  // 1. Resolve the "Stuck Active Order" bug
-  const liveOrders = (activeOrders || []).filter(o => !['CANCELLED'].includes(o.status));
+  // 1. Resolve the "Stuck Active Order" bug - show all active orders including failed/cancelled so user can dismiss them
+  const liveOrders = (activeOrders || []);
   const hasActiveTracking = liveOrders.length > 0;
 
-  // 2. Filter logic (Memoized)
+  /**
+   * Filters the menu items based on veg-only toggle, active category, and search query.
+   * Memoized to prevent unnecessary recalculations on re-renders.
+   */
   const filteredMenu = useMemo(() => {
     return menuItems.filter(i => {
       if (i.isDeleted) return false;
@@ -121,16 +184,27 @@ export default function MenuScreen() {
     });
   }, [menuItems, vegOnly, activeCat, searchQuery]);
 
-  // 3. Group into sections for SectionList (Memoized)
+  /**
+   * Groups the filtered menu items into sections based on their categories,
+   * while also formatting them into rows for grid-like display based on numColumns.
+   * Memoized to optimize SectionList rendering.
+   */
   const sections = useMemo(() => {
     return MenuCategories
       .filter(cat => activeCat === "All" || cat === activeCat)
-      .map(cat => ({
-        title: cat,
-        data: filteredMenu.filter(i => i.category === cat)
-      }))
+      .map(cat => {
+        const catData = filteredMenu.filter(i => i.category === cat);
+        const rows = [];
+        for (let i = 0; i < catData.length; i += numColumns) {
+          rows.push(catData.slice(i, i + numColumns));
+        }
+        return {
+          title: cat,
+          data: rows
+        };
+      })
       .filter(section => section.data.length > 0);
-  }, [filteredMenu, activeCat]);
+  }, [filteredMenu, activeCat, numColumns]);
 
   // Greeting logic
   const hour = new Date().getHours();
@@ -150,6 +224,10 @@ export default function MenuScreen() {
   const pulseAnim = useSharedValue(0);
   const waterDropAnim = useSharedValue(0);
 
+  /**
+   * Initializes and manages various shared values for complex UI animations
+   * like fire text, waves, pulses, and breathing effects.
+   */
   useEffect(() => {
     // Faster, more erratic animation for a "live fire" feel
     fireAnim.value = withRepeat(
@@ -284,78 +362,98 @@ export default function MenuScreen() {
     opacity: interpolate(waterDropAnim.value, [0, 0.3, 0.5, 0.8, 1], [0, 0, 0.6, 0, 0])
   }));
 
+  /**
+   * Renders the top portion of the screen, including the premium brand navbar,
+   * location selector, and personalized hero welcome banner.
+   */
   const renderHeaderTop = () => {
     const activeAddress = currentUser?.addresses?.find(a => a.id === currentUser?.selectedAddressId) || currentUser?.addresses?.[0];
     const addressLabel = activeAddress?.label || 'Home';
     const addressDetails = activeAddress?.details || currentUser?.address || 'Tap to choose delivery address';
 
     return (
-    <View style={styles.headerTopPart}>
-      {/* Location Selector */}
-      <TouchableOpacity 
-        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
-        onPress={() => setShowAddressModal(true)}
-        activeOpacity={0.7}
-      >
-        <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View style={[
-            { position: 'absolute', width: 16, height: 16, borderRadius: 8, backgroundColor: Colors.primary, bottom: 4 },
-            pinRippleStyle
-          ]} />
-          <Animated.View style={pinBounceStyle}>
-            <Ionicons name="location" size={26} color={Colors.primary} />
-          </Animated.View>
-        </View>
-        <View style={{ marginLeft: 6, flex: 1, paddingRight: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: Colors.white, fontSize: 17, fontWeight: '800', letterSpacing: 0.3 }}>
-              {addressLabel}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={Colors.primary} style={{ marginLeft: 4 }} />
-          </View>
-          <Text style={{ color: Colors.muted, fontSize: 13, fontWeight: '500', marginTop: 2 }} numberOfLines={1}>
-            {addressDetails}
-          </Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Greeting */}
-      <View style={styles.greetRow}>
-        <Text style={styles.greetText}>Good {timeGreeting}, {firstName} </Text>
-        <Animated.Text style={[styles.greetText, waveStyle]}>👋</Animated.Text>
-      </View>
-      <Text style={styles.promptText}>what would you like to order this {timeGreeting.toLowerCase()}?</Text>
-      
-      {/* Brand */}
-      <View style={styles.brandCol}>
-        <MaskedView
-          style={{ height: 35, width: 175 }}
-          maskElement={
-            <View style={{ backgroundColor: 'transparent', flex: 1, justifyContent: 'center' }}>
-              <Text style={[styles.brandTitle, { color: 'black' }]} numberOfLines={1} adjustsFontSizeToFit>Anjani's Kitchen</Text>
+      <View style={[styles.headerTopPart, { paddingTop: Platform.OS === 'web' ? 'calc(env(safe-area-inset-top) + 12px)' : Math.max(insets.top, 10) }]}>
+        {/* Top Premium Navbar */}
+        <View style={styles.premiumNavbar}>
+          {/* Logo & Tagline */}
+          <TouchableOpacity 
+            style={styles.logoAndTagline}
+            activeOpacity={0.7}
+            role="button"
+            onPress={() => {
+              if (Platform.OS === 'web' && typeof (window as any).triggerInstallPrompt === 'function') {
+                (window as any).triggerInstallPrompt();
+              }
+            }}
+          >
+            {Platform.OS === 'web' ? (
+              React.createElement('span', { 
+                className: 'brand-name',
+                style: {}
+              }, "Anjani's Kitchen")
+            ) : (
+              <MaskedView
+                style={{ height: isWideScreen ? 35 : 29, width: isWideScreen ? 175 : 145 }}
+                maskElement={
+                  <View style={{ backgroundColor: 'transparent', flex: 1, justifyContent: 'center' }}>
+                    <Text style={[styles.brandTitle, { color: 'black', fontSize: isWideScreen ? 28 : 23 }]} numberOfLines={1} adjustsFontSizeToFit>Anjani's Kitchen</Text>
+                  </View>
+                }
+              >
+                <Animated.View style={[{ width: 800, height: '100%', flexDirection: 'row' }, sweepStyle]}>
+                  <LinearGradient
+                    colors={['#FF6B00', '#FFA500', '#FFD700', '#FFFFFF', '#FFD700', '#FFA500', '#FF6B00']}
+                    start={{ x: 0, y: 0.5 }}
+                    end={{ x: 1, y: 0.5 }}
+                    style={{ flex: 1 }}
+                  />
+                </Animated.View>
+              </MaskedView>
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+              <Text style={[styles.brandTaglineMini, { marginTop: 0 }]}>A TASTE OF PURE HEAVEN </Text>
+              <Animated.Text style={[styles.brandTaglineMini, { marginTop: 0 }, flameStyle]}>🔥</Animated.Text>
             </View>
-          }
-        >
-          <Animated.View style={[{ width: 800, height: '100%', flexDirection: 'row' }, sweepStyle]}>
-            <LinearGradient
-              colors={['#FF0000', '#FF4500', '#FF8C00', '#FFD700', '#FFFFFF', '#FFD700', '#FF8C00', '#FF4500', '#FF0000']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={{ flex: 1 }}
-            />
-          </Animated.View>
-        </MaskedView>
+          </TouchableOpacity>
 
-        <Text style={styles.partitionChar}>|</Text>
+          {/* Delivery Location Pill (Glassmorphic Chip) */}
+          <TouchableOpacity 
+            style={styles.locationGlassChip}
+            onPress={() => setShowAddressModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.locationChipLeft}>
+              <Animated.View style={[styles.chipRippleGlow, pinRippleStyle]} />
+              <Ionicons name="location" size={15} color={Colors.primary} />
+            </View>
+            <View style={styles.locationChipTextCol}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                <Text style={styles.locationChipLabel} numberOfLines={1}>{addressLabel}</Text>
+                <Ionicons name="chevron-down" size={10} color={Colors.primary} />
+              </View>
+              <Text style={styles.locationChipDetails} numberOfLines={1}>{addressDetails}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
 
-        <View style={styles.taglineRow}>
-          <Text style={styles.brandTagline} numberOfLines={1} adjustsFontSizeToFit>A TASTE OF PURE HEAVEN </Text>
-          <Animated.Text style={[styles.brandTagline, flameStyle]}>🔥</Animated.Text>
+        {/* Hero Welcome Banner */}
+        <View style={styles.heroWelcomeBanner}>
+          <View style={styles.bannerAccentBar} />
+          <View style={styles.bannerTextContainer}>
+            <View style={styles.greetRow}>
+              <Text style={styles.greetText} numberOfLines={1}>Good {timeGreeting}, {firstName}</Text>
+              <Animated.Text style={[styles.greetText, waveStyle]}>👋</Animated.Text>
+            </View>
+            <Text style={styles.promptText}>What would you like to order this {timeGreeting.toLowerCase()}?</Text>
+          </View>
         </View>
       </View>
-    </View>
     );
   };
+  /**
+   * Renders the sticky portion of the header, which includes the search box,
+   * vegetarian toggle, and the horizontally scrollable category tabs.
+   */
   const renderStickyPart = () => (
     <View style={styles.stickyHeaderPart}>
       {/* Sticky-like Search + Veg Toggle Row */}
@@ -399,17 +497,17 @@ export default function MenuScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={{ height: Math.max(insets.top, 12), backgroundColor: Colors.surface }} />
       <SectionList
         sections={sections}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item.map((m: any) => m.id).join('-') || `row-${index}`}
         stickySectionHeadersEnabled={true}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        initialNumToRender={8}
-        maxToRenderPerBatch={5}
-        windowSize={5}
-        removeClippedSubviews={true}
+        initialNumToRender={150}
+        maxToRenderPerBatch={150}
+        windowSize={151}
+        removeClippedSubviews={false}
+        updateCellsBatchingPeriod={10}
         contentContainerStyle={{ paddingBottom: getCartCount() > 0 || hasActiveTracking ? 120 : 60 }}
         ListHeaderComponent={
           <>
@@ -433,22 +531,32 @@ export default function MenuScreen() {
           </View>
         )}
         renderItem={({ item, index }) => (
-          <MenuCard
-            item={item}
-            cartItem={cart[item.id]}
-            onAdd={addToCart}
-            onRemove={removeFromCart}
-            index={index}
-            isExpanded={expandedItemId === item.id}
-            onToggleExpand={() => {
-              setExpandedItemId(prevId => prevId === item.id ? null : item.id);
-            }}
-          />
+          <View style={{ flexDirection: 'row', paddingHorizontal: isWideScreen ? 16 : 0 }}>
+            {item.map((menuItem: MenuItem, colIndex: number) => (
+              <View key={menuItem.id} style={{ flex: 1, paddingHorizontal: isWideScreen ? 8 : 0 }}>
+                <MenuCard
+                  item={menuItem}
+                  cartItem={cart[menuItem.id]}
+                  onAdd={addToCart}
+                  onRemove={removeFromCart}
+                  index={index * numColumns + colIndex}
+                  isExpanded={expandedItemId === menuItem.id}
+                  onToggleExpand={() => {
+                    setExpandedItemId(prevId => prevId === menuItem.id ? null : menuItem.id);
+                  }}
+                />
+              </View>
+            ))}
+            {/* Fill empty columns to maintain flex ratio */}
+            {Array.from({ length: numColumns - item.length }).map((_, i) => (
+              <View key={`empty-${i}`} style={{ flex: 1, paddingHorizontal: isWideScreen ? 8 : 0 }} />
+            ))}
+          </View>
         )}
       />
 
       {/* ─── Floating Bottom Bars ─── */}
-      <View style={[styles.floatingBannersContainer, { bottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.floatingBannersContainer, { bottom: Platform.OS === 'web' ? 'calc(16px + env(safe-area-inset-bottom))' : Math.max(insets.bottom, 16) }]}>
         {hasActiveTracking && (() => {
             if (liveOrders.length > 1) {
               return (
@@ -483,9 +591,14 @@ export default function MenuScreen() {
 
             const activeOrder = liveOrders[0];
             const statusLabel = 
+              activeOrder.status === 'PAYMENT_PENDING' ? '⚠️ Payment Incomplete' :
+              activeOrder.status === 'CANCELLED' ? (activeOrder.cancelReason === 'Rejected by restaurant' ? '❌ Order Rejected' : '❌ Order Cancelled') :
               activeOrder.status === 'PLACED' ? '🍽️ Order placed! Kitchen notified' :
+              activeOrder.status === 'ACCEPTED' ? '👍 Order accepted! Starting prep' :
               activeOrder.status === 'PREPARING' ? '👨‍🍳 Being prepared in kitchen...' :
+              activeOrder.status === 'READY' ? '📦 Food is ready! Waiting for rider' :
               activeOrder.status === 'OUT_FOR_DELIVERY' ? '🛵 On the way to you!' :
+              activeOrder.status === 'DELIVERED' ? '✅ Order delivered!' :
               '✅ Order delivered!';
             return (
               <Animated.View style={[{ overflow: 'hidden', borderRadius: 16 }, pulseBorderStyle]}>
@@ -507,9 +620,16 @@ export default function MenuScreen() {
                     <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', shadowColor: '#4ade80', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 4 }} />
                   </View>
                   <Animated.Text style={[styles.floatingBarText, bounceStyle]}>
-                    {activeOrder.status === 'PREPARING' ? '👨‍🍳 ' : activeOrder.status === 'OUT_FOR_DELIVERY' ? '🛵 ' : ''}
+                    {activeOrder.status === 'PREPARING' ? '👨‍🍳 ' : 
+                     activeOrder.status === 'OUT_FOR_DELIVERY' ? '🛵 ' : 
+                     activeOrder.status === 'PLACED' ? '🍽️ ' : 
+                     activeOrder.status === 'ACCEPTED' ? '👍 ' : 
+                     activeOrder.status === 'READY' ? '📦 ' : 
+                     activeOrder.status === 'PAYMENT_PENDING' ? '⚠️ ' : 
+                     activeOrder.status === 'CANCELLED' ? '❌ ' : 
+                     activeOrder.status === 'DELIVERED' ? '✅ ' : '✅ '}
                   </Animated.Text>
-                  <Text style={[styles.floatingBarText, { marginLeft: -6 }]}>{statusLabel.replace(/👨‍🍳 |🛵 |🍽️ |✅ /, '')}</Text>
+                  <Text style={[styles.floatingBarText, { marginLeft: -6 }]}>{statusLabel.replace(/👨‍🍳 |🛵 |🍽️ |✅ |⚠️ |❌ |👍 |📦 /, '')}</Text>
                   <Animated.View style={[{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 }, trackArrowStyle]}>
                     <Text style={styles.trackBarTapHint}>Track</Text>
                     <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.7)" />
@@ -607,7 +727,7 @@ const styles = StyleSheet.create({
   modernClosedWrapper: {
     marginHorizontal: 16,
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 20,
     borderRadius: 20,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 6 },
@@ -685,13 +805,115 @@ const styles = StyleSheet.create({
   },
   headerTopPart: {
     paddingHorizontal: 16,
-    paddingTop: 10,
-    backgroundColor: Colors.surface,
+    backgroundColor: Platform.OS === 'web' ? '#08080C' : Colors.surface,
+  },
+  premiumNavbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    width: '100%',
+    paddingTop: Platform.OS === 'web' ? 16 : 10,
+  },
+  logoAndTagline: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    flexShrink: 1,
+  },
+  brandTaglineMini: {
+    fontSize: 9,
+    color: '#FFD700',
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginTop: 2,
+  },
+  locationGlassChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 30,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    maxWidth: '42%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  locationChipLeft: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+    position: 'relative',
+  },
+  chipRippleGlow: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.primary,
+    opacity: 0.3,
+  },
+  locationChipTextCol: {
+    flex: 1,
+  },
+  locationChipLabel: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  locationChipDetails: {
+    color: Colors.muted || '#8E8E93',
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 0,
+  },
+  heroWelcomeBanner: {
+    flexDirection: 'row',
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+    overflow: 'hidden',
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: { elevation: 4 },
+      web: {
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+      }
+    }),
+  },
+  bannerAccentBar: {
+    width: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.primary || '#FF6B00',
+    marginRight: 12,
+  },
+  bannerTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   stickyHeaderPart: {
     paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 20,
-    backgroundColor: Colors.surface,
+    backgroundColor: Platform.OS === 'web' ? '#08080C' : Colors.surface,
     zIndex: 10,
   },
   greetRow: {
@@ -709,39 +931,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.muted,
     fontWeight: '500',
-    marginBottom: 20,
-    marginTop: 2,
-  },
-  brandCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    width: '100%',
-    flexWrap: 'nowrap',
+    marginTop: 4,
+    marginBottom: 0,
   },
   brandTitle: {
     fontSize: 28,
     fontWeight: '900',
     letterSpacing: -0.5,
-  },
-  partitionChar: {
-    color: Colors.muted,
-    fontSize: 18,
-    fontWeight: '300',
-    marginHorizontal: 4,
-    marginTop: 6, // Push down to meet baseline
-  },
-  taglineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-    marginTop: 8, // Push down to meet baseline
-  },
-  brandTagline: {
-    fontSize: 10,
-    color: Colors.gold,
-    fontWeight: '800',
-    letterSpacing: 0.5,
   },
   
   // Actions Row (Search & Filter)
@@ -822,7 +1018,7 @@ const styles = StyleSheet.create({
 
   // Section Headers
   sectionHeader: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Platform.OS === 'web' ? '#08080C' : Colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -881,9 +1077,9 @@ const styles = StyleSheet.create({
     }),
   },
   trackingBar: {
-    backgroundColor: Colors.card2,
+    backgroundColor: Platform.OS === 'web' ? 'rgba(20, 22, 28, 0.98)' : Colors.card2,
     borderWidth: 1,
-    borderColor: 'rgba(74, 222, 128, 0.25)',
+    borderColor: 'rgba(74, 222, 128, 0.35)',
     ...Platform.select({
       ios: {
         shadowColor: '#4ade80',
@@ -935,11 +1131,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Platform.OS === 'web' ? 'rgba(20, 22, 28, 0.98)' : Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -966,15 +1162,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
-    backgroundColor: Colors.card,
+    backgroundColor: Platform.OS === 'web' ? 'rgba(30, 32, 40, 0.95)' : Colors.card,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
     marginBottom: 10,
   },
   addressItemActive: {
-    borderColor: Colors.primary,
-    backgroundColor: 'rgba(255,107,0,0.06)',
+    borderColor: '#FF6B00',
+    borderWidth: 2,
+    backgroundColor: 'rgba(255,107,0,0.12)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FF6B00',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: '0 0 12px rgba(255, 107, 0, 0.25)',
+      }
+    }),
   },
   addressIconWrap: {
     width: 36,

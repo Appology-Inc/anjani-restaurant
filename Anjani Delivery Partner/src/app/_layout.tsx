@@ -1,18 +1,21 @@
+/**
+ * @fileoverview Root layout entry point for the Expo Router app.
+ * Sets up the global context providers and status bar.
+ */
 import { Slot } from 'expo-router';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LogBox } from 'react-native';
 
-import { registerForPushNotificationsAsync } from '../utils/notifications';
+LogBox.ignoreAllLogs(true); // Suppress all warnings/errors from showing on screen during testing
 
-// LogBox.ignoreAllLogs(true); // Removed for production
-
+/**
+ * RootLayout component wrapping the entire application.
+ * 
+ * @returns {React.ReactElement} The rendered root layout with context providers.
+ */
 export default function RootLayout() {
-  React.useEffect(() => {
-    registerForPushNotificationsAsync();
-  }, []);
-
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />

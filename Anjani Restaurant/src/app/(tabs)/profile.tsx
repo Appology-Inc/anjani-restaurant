@@ -1,3 +1,9 @@
+/**
+ * @file profile.tsx
+ * @description User profile screen for Anjani Restaurant.
+ * Handles user authentication (registration), managing delivery addresses
+ * with GPS auto-detection and OpenStreetMap integration, and displaying previous orders.
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import {
@@ -38,6 +44,19 @@ const LABEL_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 // LiveTrackingCard component extracted to src/components/LiveTrackingCard.tsx
 
 // ─── Address Card Component ──────────────────────────────────────────────────
+/**
+ * AddressCard Component
+ * 
+ * Displays a single saved delivery address with options to select, edit, or delete it.
+ * 
+ * @param {Object} props - The component props.
+ * @param {SavedAddress} props.addr - The address object to display.
+ * @param {boolean} props.isSelected - Whether this address is currently selected for delivery.
+ * @param {Function} props.onSelect - Callback invoked when the address is selected.
+ * @param {Function} props.onDelete - Callback invoked when the address is deleted.
+ * @param {Function} props.onEdit - Callback invoked when the address is edited.
+ * @returns {React.ReactElement} The rendered AddressCard.
+ */
 function AddressCard({
   addr,
   isSelected,
@@ -88,6 +107,16 @@ function AddressCard({
 }
 
 // ─── Previous Order Card Component ───────────────────────────────────────────
+/**
+ * OrderCard Component
+ * 
+ * Displays details of a previously placed order, including items,
+ * timestamp, payment method, and status. Provides a reorder button.
+ * 
+ * @param {Object} props - The component props.
+ * @param {any} props.order - The order object.
+ * @returns {React.ReactElement} The rendered OrderCard.
+ */
 function OrderCard({ order }: { order: any }) {
   const { reorder } = useAppStore();
   const payLabel: Record<string, string> = {
@@ -135,7 +164,6 @@ function OrderCard({ order }: { order: any }) {
             {oi.item.name}
           </Text>
           <Text style={styles.orderItemQty}>×{oi.quantity}</Text>
-          <Text style={styles.orderItemPrice}>₹{(oi.item.price * oi.quantity).toFixed(0)}</Text>
         </View>
       ))}
 
@@ -146,7 +174,6 @@ function OrderCard({ order }: { order: any }) {
           <Ionicons name="card-outline" size={13} color={Colors.muted} />
           <Text style={styles.orderPayTxt}>{payLabel[order.paymentMethod] ?? order.paymentMethod}</Text>
         </View>
-        <Text style={styles.orderTotal}>₹{order.totalAmount.toFixed(0)}</Text>
       </View>
 
       <TouchableOpacity
@@ -164,6 +191,16 @@ function OrderCard({ order }: { order: any }) {
 }
 
 // ─── Section Header ──────────────────────────────────────────────────────────
+/**
+ * SectionHeader Component
+ * 
+ * Reusable header for sections in the profile screen.
+ * 
+ * @param {Object} props - The component props.
+ * @param {keyof typeof Ionicons.glyphMap} props.icon - The Ionicons name.
+ * @param {string} props.title - The section title.
+ * @returns {React.ReactElement} The rendered SectionHeader.
+ */
 function SectionHeader({ icon, title }: { icon: keyof typeof Ionicons.glyphMap; title: string }) {
   return (
     <View style={styles.sectionHeader}>
@@ -176,6 +213,15 @@ function SectionHeader({ icon, title }: { icon: keyof typeof Ionicons.glyphMap; 
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
+/**
+ * ProfileScreen Component
+ * 
+ * Manages the main user profile view. If the user is unauthenticated, it shows
+ * a registration form. Once authenticated, it allows managing addresses,
+ * viewing live tracking cards, and seeing order history.
+ * 
+ * @returns {React.ReactElement} The rendered ProfileScreen.
+ */
 export default function ProfileScreen() {
   const router = useRouter();
   const { 
@@ -192,7 +238,7 @@ export default function ProfileScreen() {
   } = useAppStore();
   const insets = useSafeAreaInsets();
 
-  const liveOrders = (activeOrders || []);
+  const liveOrders = (activeOrders || []).filter(o => o.status !== 'CANCELLED' && o.status !== 'DELIVERED');
 
   // Registration state
   const [name, setName] = useState('');
@@ -253,6 +299,11 @@ export default function ProfileScreen() {
     };
   }, []);
 
+  /**
+   * Fetches address suggestions from Nominatim (OpenStreetMap) based on user query.
+   * 
+   * @param {string} query - The search string for the address.
+   */
   const fetchAddressSuggestions = (query: string) => {
     setNewAddress(query);
     if (!query.trim()) {
@@ -278,6 +329,9 @@ export default function ProfileScreen() {
     }, 200);
   };
 
+  /**
+   * Auto-detects user location for the registration form using expo-location.
+   */
   const handleAutoDetect = async () => {
     setIsLocating(true);
     try {
@@ -297,6 +351,9 @@ export default function ProfileScreen() {
     }
   };
 
+  /**
+   * Handles user registration by validating inputs and creating a new user session.
+   */
   const handleRegister = () => {
     if (!name.trim() || !email.trim() || !regAddress.trim() || !phone.trim()) {
       return Alert.alert('Missing Info', 'Please fill in all fields.');
@@ -313,17 +370,79 @@ export default function ProfileScreen() {
     });
   };
 
+  /**
+   * Auto-detects user location for the add/edit address form using
+   * the browser's Geolocation API on web or expo-location on native platforms.
+   */
   const handleAutoDetectAddress = async () => {
     setIsLocatingAddress(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') throw new Error('Permission denied');
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
-      setAddressCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-      const [place] = await Location.reverseGeocodeAsync(loc.coords);
-      if (place) {
-        const addr = [place.name, place.street, place.district, place.city].filter(Boolean).join(', ');
-        setNewAddress(addr);
+      if (Platform.OS === 'web') {
+        const coords = await new Promise<{ latitude: number; longitude: number } | null>((resolve) => {
+          if (!navigator.geolocation) { resolve(null); return; }
+          // Try standard Wi-Fi/cellular geolocation first (extremely fast and accurate on desktops)
+          navigator.geolocation.getCurrentPosition(
+            pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+            () => {
+              // If that fails, try with high accuracy just in case
+              navigator.geolocation.getCurrentPosition(
+                pos2 => resolve({ latitude: pos2.coords.latitude, longitude: pos2.coords.longitude }),
+                async () => {
+                  // Fallback to IP geolocation if both fail
+                  try {
+                    const ipRes = await fetch('https://ipapi.co/json/');
+                    const ipData = await ipRes.json();
+                    if (ipData && ipData.latitude && ipData.longitude) {
+                      resolve({ latitude: ipData.latitude, longitude: ipData.longitude });
+                      return;
+                    }
+                  } catch (e) {
+                    console.warn('IP fallback failed:', e);
+                  }
+                  resolve(null);
+                },
+                { timeout: 5000, enableHighAccuracy: true }
+              );
+            },
+            { timeout: 4000, enableHighAccuracy: false }
+          );
+        });
+
+        if (coords) {
+          setAddressCoords({ latitude: coords.latitude, longitude: coords.longitude });
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&addressdetails=1`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          const data = await res.json();
+          if (data) {
+            const addrObj = data.address || {};
+            const house = addrObj.house_number || addrObj.building || addrObj.amenity || '';
+            const road = addrObj.road || addrObj.street || '';
+            const neighborhood = addrObj.neighbourhood || addrObj.suburb || addrObj.city_district || '';
+            const city = addrObj.city || addrObj.town || addrObj.village || '';
+            const state = addrObj.state || '';
+            const postcode = addrObj.postcode || '';
+            
+            const parts = [house, road, neighborhood, city, state, postcode].filter(Boolean);
+            const addr = parts.join(', ');
+            setNewAddress(addr || data.display_name);
+          } else {
+            setNewAddress(`${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`);
+          }
+        } else {
+          Alert.alert('Error', 'Could not detect location. Please enter manually.');
+        }
+      } else {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') throw new Error('Permission denied');
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+        setAddressCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        const [place] = await Location.reverseGeocodeAsync(loc.coords);
+        if (place) {
+          const addr = [place.name, place.street, place.district, place.city].filter(Boolean).join(', ');
+          setNewAddress(addr);
+        }
       }
     } catch {
       Alert.alert('Error', 'Could not detect location. Please enter manually.');
@@ -332,6 +451,9 @@ export default function ProfileScreen() {
     }
   };
 
+  /**
+   * Saves a new or edited address to the user's profile.
+   */
   const handleSaveAddress = () => {
     if (!newAddress.trim()) return Alert.alert('Empty', 'Please enter an address.');
     
@@ -364,7 +486,7 @@ export default function ProfileScreen() {
     return (
       <KeyboardAwareScrollView 
         style={{ flex: 1 }} 
-        contentContainerStyle={[styles.registerContent, { paddingTop: insets.top + 24 }]}
+        contentContainerStyle={[styles.registerContent, { paddingTop: Platform.OS === 'web' ? 'calc(24px + env(safe-area-inset-top))' : insets.top + 24 }]}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
         extraScrollHeight={80}
@@ -509,7 +631,7 @@ export default function ProfileScreen() {
   return (
     <KeyboardAwareScrollView 
       style={styles.container}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+      contentContainerStyle={{ paddingBottom: Platform.OS === 'web' ? 'calc(32px + env(safe-area-inset-bottom))' : insets.bottom + 32 }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       enableOnAndroid={true}
@@ -517,15 +639,36 @@ export default function ProfileScreen() {
     >
       {/* Hero */}
       {!isKeyboardVisible && (
-        <View style={[styles.hero, { paddingTop: insets.top + 16 }]}>
+        <View style={[styles.hero, { paddingTop: Platform.OS === 'web' ? 'calc(16px + env(safe-area-inset-top))' : insets.top + 16 }]}>
           <View style={styles.heroInfo}>
             <Text style={styles.heroName}>{currentUser.name}</Text>
             <Text style={styles.heroEmail}>{currentUser.email}</Text>
             <Text style={styles.heroPhone}>{currentUser.phone}</Text>
           </View>
-          <View style={styles.memberBadge}>
-            <Ionicons name="star" size={10} color={Colors.primary} />
-            <Text style={styles.memberTxt}>Member</Text>
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <View style={styles.memberBadge}>
+              <Ionicons name="star" size={12} color={Colors.primary} />
+              <Text style={styles.memberTxt}>Member</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.headerLogoutBtn}
+              onPress={() => {
+                Alert.alert('Log Out', 'Are you sure you want to log out?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Log Out',
+                    style: 'destructive',
+                    onPress: async () => {
+                      await logout();
+                      router.replace('/auth');
+                    },
+                  },
+                ]);
+              }}
+            >
+              <Ionicons name="log-out-outline" size={12} color="#ef4444" />
+              <Text style={styles.headerLogoutTxt}>Log Out</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -632,26 +775,7 @@ export default function ProfileScreen() {
           previousOrders.map((order) => <OrderCard key={order.id} order={order} />)
         )}
 
-        {/* ── Logout ──────────────────────────────────────────────────── */}
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={() => {
-            Alert.alert('Log Out', 'Are you sure you want to log out?', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Log Out',
-                style: 'destructive',
-                onPress: async () => {
-                  await logout();
-                  router.replace('/auth');
-                },
-              },
-            ]);
-          }}
-        >
-          <Ionicons name="log-out-outline" size={18} color="#ef4444" />
-          <Text style={styles.logoutTxt}>Log Out</Text>
-        </TouchableOpacity>
+        {/* Logout button was moved to header */}
       </View>
     </KeyboardAwareScrollView>
   );
@@ -790,8 +914,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
     backgroundColor: Colors.dark ?? Colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   heroInfo: {
     flex: 1,
@@ -814,10 +936,11 @@ const styles = StyleSheet.create({
   memberBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     backgroundColor: 'rgba(255,107,0,0.12)',
-    borderRadius: 20,
-    paddingHorizontal: 10,
+    borderRadius: 8,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: 'rgba(255,107,0,0.25)',
@@ -1279,21 +1402,20 @@ const styles = StyleSheet.create({
   },
 
   // ── Logout ──
-  logoutBtn: {
+  headerLogoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 24,
-    paddingVertical: 15,
-    borderRadius: 14,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     backgroundColor: 'rgba(239,68,68,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(239,68,68,0.25)',
   },
-  logoutTxt: {
-    fontSize: 15,
+  headerLogoutTxt: {
+    fontSize: 11,
     fontWeight: '700',
     color: '#ef4444',
   },

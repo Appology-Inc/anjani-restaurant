@@ -1,0 +1,52 @@
+name: CI Testing
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  web-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    - name: Install Dashboard Dependencies
+      run: cd "Anjani Owner Dashboard" && npm ci
+    - name: Run Web Unit Tests (Vitest)
+      run: cd "Anjani Owner Dashboard" && npm run test
+    - name: Run Web E2E & A11y Tests (Playwright)
+      run: |
+        cd "Anjani Owner Dashboard"
+        npx playwright install --with-deps chromium
+        npm run test:e2e
+
+  mobile-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ["Anjani Owner", "Anjani Restaurant", "Anjani Delivery Partner"]
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    - name: Install Mobile App Dependencies
+      run: cd "${{ matrix.app }}" && npm install --legacy-peer-deps
+    - name: Run Mobile Unit Tests (Jest)
+      run: cd "${{ matrix.app }}" && npm run test
+
+  security-rules-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    - name: Install Security Rules Testing Dependencies
+      run: cd firebase-project && npm ci
+    - name: Run Firebase Security Rules Tests
+      run: cd firebase-project && npm run test

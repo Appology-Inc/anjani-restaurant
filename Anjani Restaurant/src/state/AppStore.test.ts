@@ -1,6 +1,13 @@
+/**
+ * @file AppStore.test.ts
+ * @description Unit tests for the global Zustand application state store.
+ * Verifies default state initialization and core cart functionalities.
+ */
+
 import { useAppStore } from './AppStore';
 
 describe('AppStore - Restaurant', () => {
+  // Reset store state before each test to ensure test isolation
   beforeEach(() => {
     useAppStore.setState({
       systemOrders: [],
@@ -19,6 +26,7 @@ describe('AppStore - Restaurant', () => {
 
   it('can add items to cart', () => {
     const { addToCart } = useAppStore.getState();
+    // Mock menu item matching MenuItem interface
     const testItem = {
       id: 'item1',
       name: 'Pizza',
@@ -33,10 +41,12 @@ describe('AppStore - Restaurant', () => {
       calories: 300,
     };
     
+    // Add same item twice to test quantity increment
     addToCart(testItem);
     addToCart(testItem);
     
     const state = useAppStore.getState();
+    // Verify cart size and quantity
     expect(Object.keys(state.cart).length).toBe(1);
     expect(state.cart['item1'].quantity).toBe(2);
     expect(state.cart['item1'].item.name).toBe('Pizza');

@@ -1,11 +1,48 @@
+/**
+ * @file AppStore.ts
+ * @description Global Zustand store managing the entire application state.
+ * Handles user sessions, cart management, real-time orders sync via Firebase,
+ * offline fallbacks, and restaurant availability statuses.
+ */
+
 import { create } from 'zustand';
 import { MenuItem, MenuItems } from '../data/MenuData';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorageOriginal from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+const AsyncStorage = Platform.OS === 'web' ? {
+  getItem: async (key: string) => {
+    try {
+      return window.localStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  },
+  setItem: async (key: string, value: string) => {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch (e) {}
+  },
+  removeItem: async (key: string) => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch (e) {}
+  },
+  clear: async () => {
+    try {
+      window.localStorage.clear();
+    } catch (e) {}
+  }
+} as any : AsyncStorageOriginal;
+
 import { db, auth, isFirebaseConfigured } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { scheduleLocalNotification } from '../utils/notifications';
 import { Alert } from 'react-native';
 
+/**
+ * Represents a saved address for a customer.
+ */
 export interface SavedAddress {
   id: string;
   label: string;
@@ -14,6 +51,9 @@ export interface SavedAddress {
   longitude?: number;
 }
 
+/**
+ * Represents the profile of an authenticated customer.
+ */
 export interface CustomerProfile {
   uid: string;
   name: string;
@@ -26,13 +66,22 @@ export interface CustomerProfile {
   longitude?: number;
 }
 
-export type OrderStatus = 'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+/**
+ * Represents the current status of an active order.
+ */
+export type OrderStatus = 'PLACED' | 'PAYMENT_PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
 
+/**
+ * Represents an item added to an order.
+ */
 export interface OrderItem {
   item: MenuItem;
   quantity: number;
 }
 
+/**
+ * Represents an active order currently being processed or delivered.
+ */
 export interface ActiveOrder {
   id: string;
   items: OrderItem[];
@@ -47,7 +96,8 @@ export interface ActiveOrder {
   customerAddress: string;
   customerPhone: string;
   customerUid?: string;
-  paymentMethod: 'COD' | 'GPAY' | 'PHONEPE' | 'QR_GPAY' | 'QR_PHONEPE';
+  paymentMethod: 'COD' | 'GPAY' | 'PHONEPE' | 'QR_GPAY' | 'QR_PHONEPE' | 'ONLINE';
+  customerName?: string;
   utrNumber?: string;
   paymentVerified?: boolean; // True if the owner has manually verified the UTR
   cookingInstructions?: string;
@@ -56,8 +106,12 @@ export interface ActiveOrder {
   reviewText?: string;
   messages?: ChatMessage[];
   hasRealRider?: boolean;
+  isDismissed?: boolean;
 }
 
+/**
+ * Represents a chat message between a customer and a rider.
+ */
 export interface ChatMessage {
   id: string;
   orderId: string;
@@ -67,6 +121,9 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+/**
+ * Represents a previously completed or cancelled order.
+ */
 export interface PreviousOrder {
   id: string;
   date: string;
@@ -81,8 +138,12 @@ export interface PreviousOrder {
   reviewText?: string;
 }
 
+/**
+ * The full Zustand store interface defining state properties and actions.
+ */
 interface AppState {
   // Session State
+  isSessionLoaded: boolean;
   currentUser: CustomerProfile | null;
   login: (profile: CustomerProfile) => Promise<void>;
   logout: () => Promise<void>;
@@ -117,6 +178,15 @@ interface AppState {
     userLat?: number,
     userLng?: number
   ) => Promise<void>;
+  createPendingOrder: (
+    address: string,
+    phone: string,
+    cookingInstructions?: string,
+    userLat?: number,
+    userLng?: number
+  ) => Promise<string | null>;
+  confirmOrderPayment: (orderId: string, razorpayPaymentId: string) => Promise<void>;
+  cancelOrderPayment: (orderId: string) => Promise<void>;
   dismissOrder: (orderId: string) => void;
 
   // Previous Orders State
@@ -150,6 +220,8 @@ interface AppState {
   isRestaurantOpen: boolean;
   restaurantCloseReason: string | null;
   isAutoNightMode: boolean;
+  manualOverride: boolean;
+  paymentServerUrl: string | null;
   checkNightMode: () => void;
 
   // Boot Location
@@ -202,10 +274,18 @@ async function callCloudAPI(path: string, options: RequestInit = {}): Promise<an
 const restaurantCoords = { lat: 17.0790, lng: 82.1374 };
 const userCoords = { lat: 17.0850, lng: 82.1400 };
 
+/**
+ * Zustand store hook for accessing the global application state.
+ * Syncs with Firebase in real-time when authenticated.
+ */
 export const useAppStore = create<AppState>((set, get) => {
   let timerIds: { [orderId: string]: any } = {};
   let cloudUnsub: any = null;
+  let menuUnsub: any = null;
+  let statusUnsub: any = null;
+  let paymentUnsub: any = null;
   let lastStatusMap: { [orderId: string]: string } = {};
+  // Remove actionInFlight to allow Firebase's local cache optimistic UI to work properly
 
   // Real-time Firestore sync for all orders and active tracking coordinates
   return {
@@ -218,7 +298,9 @@ export const useAppStore = create<AppState>((set, get) => {
           if (currentUserUid) {
             if (cloudUnsub) cloudUnsub();
             const ordersRef = collection(db, 'orders');
-            const q = query(ordersRef, where('customerUid', '==', currentUserUid));
+            const q = query(ordersRef, 
+              where('customerUid', '==', currentUserUid)
+            );
             cloudUnsub = onSnapshot(q, (snapshot: any) => {
               const ordersList: ActiveOrder[] = [];
               const prevList: PreviousOrder[] = [];
@@ -227,21 +309,6 @@ export const useAppStore = create<AppState>((set, get) => {
               snapshot.forEach((doc: any) => {
                 const data = doc.data() as ActiveOrder;
                 ordersList.push(data);
-
-                // Notification Logic
-                const prevStatus = lastStatusMap[data.id];
-                if (prevStatus && prevStatus !== data.status) {
-                  if (data.status === 'PREPARING') {
-                    scheduleLocalNotification('Order is Preparing! 🍳', 'The kitchen has started preparing your food.');
-                  } else if (data.status === 'READY') {
-                    scheduleLocalNotification('Order is Ready! 🛍️', 'Your food is ready and waiting for a delivery partner.');
-                  } else if (data.status === 'OUT_FOR_DELIVERY') {
-                    scheduleLocalNotification('Out for Delivery! 🛵', 'Your order is on the way!');
-                  } else if (data.status === 'DELIVERED') {
-                    scheduleLocalNotification('Order Delivered! 🎉', 'Enjoy your meal!');
-                  }
-                }
-                lastStatusMap[data.id] = data.status;
 
                 if (data.messages) {
                   chatsObj[data.id] = data.messages;
@@ -275,17 +342,18 @@ export const useAppStore = create<AppState>((set, get) => {
               // Sort by newest first (descending)
               prevList.sort((a, b) => (b.timestamp || new Date(b.date).getTime()) - (a.timestamp || new Date(a.date).getTime()));
               set({ previousOrders: prevList });
-              AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(prevList));
+              AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(prevList)).catch(() => {});
               
               const currentActives = get().activeOrders || [];
               const newActives = ordersList.filter(o => {
-                if (o.status === 'CANCELLED') return false;
-                if (o.status === 'DELIVERED') {
-                  if (o.isDismissed) return false;
-                  // Auto-dismiss orders older than 24 hours as a fallback
+                // If it's explicitly dismissed, never show it
+                if (o.isDismissed) return false;
+                
+                // Auto-dismiss terminal or abandoned states older than 24 hours as a fallback
+                if (o.status === 'DELIVERED' || o.status === 'CANCELLED' || o.status === 'PAYMENT_PENDING') {
                   if (o.createdAt && (Date.now() - o.createdAt > 24 * 60 * 60 * 1000)) return false;
-                  return true;
                 }
+                
                 return true;
               });
               
@@ -299,18 +367,28 @@ export const useAppStore = create<AppState>((set, get) => {
                     else if (active.status === 'PREPARING') body = 'Your order is being prepared in the kitchen 👨‍🍳';
                     else if (active.status === 'READY') body = 'Your order is ready and waiting for a rider 📦';
                     else if (active.status === 'OUT_FOR_DELIVERY') body = 'Your order is out for delivery! 🛵';
+                    else if (active.status === 'DELIVERED') body = 'Your order has been delivered! Enjoy your meal 🍽️';
+                    else if (active.status === 'CANCELLED') body = 'Your order was cancelled by the restaurant ❌';
                     
                     if (body) {
-                      Notifications.scheduleNotificationAsync({
-                        content: { title: 'Order Update', body },
-                        trigger: null,
-                      });
+                      scheduleLocalNotification('Order Update', body);
                     }
                   }
                 });
               }
+              // Sort active orders: in-progress first, then newest first
+              newActives.sort((a, b) => {
+                const aIsTerminal = ['DELIVERED', 'CANCELLED', 'PAYMENT_PENDING'].includes(a.status);
+                const bIsTerminal = ['DELIVERED', 'CANCELLED', 'PAYMENT_PENDING'].includes(b.status);
+                
+                if (aIsTerminal && !bIsTerminal) return 1;
+                if (!aIsTerminal && bIsTerminal) return -1;
+                
+                // If both are in the same terminal/active group, sort by createdAt descending
+                return (b.createdAt || 0) - (a.createdAt || 0);
+              });
               set({ activeOrders: newActives });
-              AsyncStorage.setItem('anjani_active_orders', JSON.stringify(newActives));
+              AsyncStorage.setItem('anjani_active_orders', JSON.stringify(newActives)).catch(() => {});
             }, (error: any) => {
               console.warn('Firestore orders sync deferred/unauthorized. Ensure public Firestore rules are active for orders: ', error.message);
             });
@@ -319,8 +397,9 @@ export const useAppStore = create<AppState>((set, get) => {
           }
 
       // Real-time Firestore sync for ALL menu items
+      if (menuUnsub) menuUnsub();
       const menuRef = collection(db, 'menu');
-      onSnapshot(menuRef, (snapshot: any) => {
+      menuUnsub = onSnapshot(menuRef, (snapshot: any) => {
         const dbItems: MenuItem[] = [];
         snapshot.forEach((doc: any) => {
           const data = doc.data();
@@ -352,17 +431,35 @@ export const useAppStore = create<AppState>((set, get) => {
       });
 
         // Real-time Firestore sync for restaurant status
+        if (statusUnsub) statusUnsub();
         const statusRef = doc(db, 'settings', 'status');
-        onSnapshot(statusRef, (snapshot: any) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
+        statusUnsub = onSnapshot(statusRef, (docSnap: any) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const override = !!data.manualOverride;
             set({
               isRestaurantOpen: data.isOpen !== false,
-              restaurantCloseReason: data.reason || null
+              restaurantCloseReason: data.reason || null,
+              manualOverride: override
             });
+            get().checkNightMode();
           }
         }, (error: any) => {
           console.warn('Firestore status sync deferred/unauthorized: ', error.message);
+        });
+
+        // Real-time Firestore sync for payment settings
+        if (paymentUnsub) paymentUnsub();
+        const paymentRef = doc(db, 'settings', 'payment');
+        paymentUnsub = onSnapshot(paymentRef, (docSnap: any) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            set({
+              paymentServerUrl: data.url || null
+            });
+          }
+        }, (error: any) => {
+          console.warn('Firestore payment sync deferred/unauthorized: ', error.message);
         });
       } catch (e: any) {
         console.log('Firebase listeners could not be attached:', e.message);
@@ -398,27 +495,37 @@ export const useAppStore = create<AppState>((set, get) => {
     isRestaurantOpen: true,
     restaurantCloseReason: null,
     isAutoNightMode: false,
+    manualOverride: false,
+    paymentServerUrl: null,
     checkNightMode: () => {
       const hour = new Date().getHours();
-      // Temporarily changed to 10 AM so the user can test the app right now
-      const nightMode = hour >= 23 || hour < 11;
-      set({ isAutoNightMode: nightMode });
+      const isNight = hour >= 23 || hour < 11;
+      const override = get().manualOverride;
+      
+      // Night mode is only active if it is night hours and there is no active override
+      set({ isAutoNightMode: isNight && !override });
     },
 
+    isSessionLoaded: false,
     currentUser: null,
     login: async (profile) => {
       // Backwards-compatibility safety
       if (!profile.addresses) profile.addresses = [];
       if (profile.addresses.length === 0 && profile.address) {
         const defaultId = `ADD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        profile.addresses = [{ id: defaultId, label: 'Home', details: profile.address }];
+        profile.addresses = [{ id: defaultId, label: 'Home', details: profile.address, latitude: profile.latitude, longitude: profile.longitude }];
         profile.selectedAddressId = defaultId;
       }
-      if (!profile.address && profile.addresses.length > 0) {
-        profile.address = profile.addresses.find(a => a.id === profile.selectedAddressId)?.details || '';
+      if (profile.addresses.length > 0) {
+        const activeAddr = profile.addresses.find(a => a.id === profile.selectedAddressId) || profile.addresses[0];
+        profile.selectedAddressId = activeAddr.id;
+        profile.address = activeAddr.details;
+        profile.latitude = activeAddr.latitude;
+        profile.longitude = activeAddr.longitude;
       }
 
       set({ currentUser: profile });
+      get().initCloudListeners();
 
 
       // Persist locally
@@ -446,10 +553,21 @@ export const useAppStore = create<AppState>((set, get) => {
 
       Object.values(timerIds).forEach(t => clearInterval(t));
       timerIds = {};
-      set({ currentUser: null, activeOrders: [], cart: {} });
+      if (cloudUnsub) { cloudUnsub(); cloudUnsub = null; }
+      if (menuUnsub) { menuUnsub(); menuUnsub = null; }
+      if (statusUnsub) { statusUnsub(); statusUnsub = null; }
+      if (paymentUnsub) { paymentUnsub(); paymentUnsub = null; }
+      set({ currentUser: null, activeOrders: [], cart: {}, previousOrders: [], chatMessages: {} });
       try {
         await AsyncStorage.removeItem('anjani_customer_user_profile');
         await AsyncStorage.removeItem('anjani_previous_orders');
+        
+        // Sync Firebase auth state
+        if (isFirebaseConfigured) {
+          const { signOut } = require('firebase/auth');
+          await signOut(auth);
+          console.log('Firebase user successfully signed out');
+        }
       } catch (err) {
         console.error('Local persistence clear error:', err);
       }
@@ -490,14 +608,19 @@ export const useAppStore = create<AppState>((set, get) => {
           }
 
           if (cloudUser) {
-            if (!cloudUser.address && cloudUser.addresses && cloudUser.addresses.length > 0) {
-              cloudUser.address = cloudUser.addresses.find((a: SavedAddress) => a.id === cloudUser.selectedAddressId)?.details || cloudUser.addresses[0].details || '';
+            if (cloudUser.addresses && cloudUser.addresses.length > 0) {
+              const activeAddr = cloudUser.addresses.find((a: SavedAddress) => a.id === cloudUser.selectedAddressId) || cloudUser.addresses[0];
+              cloudUser.selectedAddressId = activeAddr.id;
+              cloudUser.address = activeAddr.details;
+              cloudUser.latitude = activeAddr.latitude;
+              cloudUser.longitude = activeAddr.longitude;
             }
 
             set({ 
               currentUser: cloudUser, 
               previousOrders: cloudUser.previousOrders || [] 
             });
+            get().initCloudListeners();
 
             await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(cloudUser));
             await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(cloudUser.previousOrders || []));
@@ -515,14 +638,19 @@ export const useAppStore = create<AppState>((set, get) => {
         if (res && res.success && res.user) {
           const cloudUser = res.user;
           
-          if (!cloudUser.address && cloudUser.addresses?.length > 0) {
-            cloudUser.address = cloudUser.addresses.find((a: SavedAddress) => a.id === cloudUser.selectedAddressId)?.details || cloudUser.addresses[0].details || '';
+          if (cloudUser.addresses && cloudUser.addresses.length > 0) {
+            const activeAddr = cloudUser.addresses.find((a: SavedAddress) => a.id === cloudUser.selectedAddressId) || cloudUser.addresses[0];
+            cloudUser.selectedAddressId = activeAddr.id;
+            cloudUser.address = activeAddr.details;
+            cloudUser.latitude = activeAddr.latitude;
+            cloudUser.longitude = activeAddr.longitude;
           }
 
           set({ 
             currentUser: cloudUser, 
             previousOrders: cloudUser.previousOrders || [] 
           });
+          get().initCloudListeners();
 
           await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(cloudUser));
           await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(cloudUser.previousOrders || []));
@@ -534,14 +662,19 @@ export const useAppStore = create<AppState>((set, get) => {
           if (localMockData) {
             const cloudUser = JSON.parse(localMockData);
             
-            if (!cloudUser.address && cloudUser.addresses?.length > 0) {
-              cloudUser.address = cloudUser.addresses.find((a: SavedAddress) => a.id === cloudUser.selectedAddressId)?.details || cloudUser.addresses[0].details || '';
+            if (cloudUser.addresses && cloudUser.addresses.length > 0) {
+              const activeAddr = cloudUser.addresses.find((a: SavedAddress) => a.id === cloudUser.selectedAddressId) || cloudUser.addresses[0];
+              cloudUser.selectedAddressId = activeAddr.id;
+              cloudUser.address = activeAddr.details;
+              cloudUser.latitude = activeAddr.latitude;
+              cloudUser.longitude = activeAddr.longitude;
             }
 
             set({ 
               currentUser: cloudUser, 
               previousOrders: cloudUser.previousOrders || [] 
             });
+            get().initCloudListeners();
 
             await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(cloudUser));
             await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(cloudUser.previousOrders || []));
@@ -556,7 +689,15 @@ export const useAppStore = create<AppState>((set, get) => {
       const user = get().currentUser;
       if (!user) return;
 
-      const payload = {
+      let fcmToken = null;
+      try {
+        const { registerForPushNotificationsAsync } = require('../utils/notifications');
+        fcmToken = await registerForPushNotificationsAsync();
+      } catch (e) {
+        console.warn('Failed to fetch FCM token during sync', e);
+      }
+
+      const payload: any = {
         uid: user.uid,
         name: user.name,
         email: user.email,
@@ -565,8 +706,13 @@ export const useAppStore = create<AppState>((set, get) => {
         addresses: user.addresses || [],
         selectedAddressId: user.selectedAddressId || '',
         latitude: user.latitude,
-        longitude: user.longitude
+        longitude: user.longitude,
+        role: 'customer',
       };
+
+      if (fcmToken) {
+        payload.fcmToken = fcmToken;
+      }
 
       // Sync with Cloud Firestore using the secure UID document path
       if (isFirebaseConfigured) {
@@ -602,23 +748,33 @@ export const useAppStore = create<AppState>((set, get) => {
         const activeOrdersStr = await AsyncStorage.getItem('anjani_active_orders');
         
         let localUser = null;
-        if (userStr) localUser = JSON.parse(userStr);
-
-        let localOrders = [];
-        if (ordersStr) {
-          localOrders = JSON.parse(ordersStr);
-          // Purge any lingering mock demo orders from the local cache
-          localOrders = localOrders.filter((o: any) => !['ORD-55410', 'ORD-21094', 'ORD-98231', 'ORD-76293'].includes(o.id));
-          await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(localOrders));
+        if (userStr) {
+          try { localUser = JSON.parse(userStr); } catch { localUser = null; }
         }
 
-        let localActiveOrders = [];
+        let localOrders: any[] = [];
+        if (ordersStr) {
+          try {
+            localOrders = JSON.parse(ordersStr);
+            localOrders = localOrders.filter((o: any) => !['ORD-55410', 'ORD-21094', 'ORD-98231', 'ORD-76293'].includes(o.id));
+            await AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(localOrders));
+          } catch { localOrders = []; }
+        }
+
+        let localActiveOrders: any[] = [];
         if (activeOrdersStr) {
-          localActiveOrders = JSON.parse(activeOrdersStr);
+          try { localActiveOrders = JSON.parse(activeOrdersStr); } catch { localActiveOrders = []; }
         }
         
         if (localUser) {
-          set({ currentUser: localUser, previousOrders: localOrders, activeOrders: localActiveOrders });
+          if (localUser.addresses && localUser.addresses.length > 0) {
+            const activeAddr = localUser.addresses.find((a: any) => a.id === localUser.selectedAddressId) || localUser.addresses[0];
+            localUser.selectedAddressId = activeAddr.id;
+            localUser.address = activeAddr.details;
+            localUser.latitude = activeAddr.latitude;
+            localUser.longitude = activeAddr.longitude;
+          }
+          set({ currentUser: localUser, previousOrders: localOrders, activeOrders: localActiveOrders, isSessionLoaded: true });
           
           // Attempt silent background sync to update changes
           let cloudUser: any = null;
@@ -649,8 +805,12 @@ export const useAppStore = create<AppState>((set, get) => {
           }
           
           if (cloudUser) {
-            if (!cloudUser.address && cloudUser.addresses && cloudUser.addresses.length > 0) {
-              cloudUser.address = cloudUser.addresses.find((a: SavedAddress) => a.id === cloudUser.selectedAddressId)?.details || '';
+            if (cloudUser.addresses && cloudUser.addresses.length > 0) {
+              const activeAddr = cloudUser.addresses.find((a: SavedAddress) => a.id === cloudUser.selectedAddressId) || cloudUser.addresses[0];
+              cloudUser.selectedAddressId = activeAddr.id;
+              cloudUser.address = activeAddr.details;
+              cloudUser.latitude = activeAddr.latitude;
+              cloudUser.longitude = activeAddr.longitude;
             }
             
             set({ 
@@ -662,9 +822,12 @@ export const useAppStore = create<AppState>((set, get) => {
           
           // Re-initialize cloud listeners now that we have the proper user UID loaded
           get().initCloudListeners();
+        } else {
+          set({ isSessionLoaded: true });
         }
       } catch (err) {
         console.error('Session boot loading failed:', err);
+        set({ isSessionLoaded: true });
       }
     },
 
@@ -700,22 +863,26 @@ export const useAppStore = create<AppState>((set, get) => {
       };
 
       const updatedAddresses = [...(user.addresses || []), newAddress];
-      const selectedAddressId = user.selectedAddressId || newAddress.id;
-      const activeAddress = updatedAddresses.find(a => a.id === selectedAddressId);
-      const activeDetails = activeAddress?.details || details;
+      const selectedAddressId = newAddress.id; // Automatically select the newly added address
+      const activeAddress = newAddress;
+      const activeDetails = newAddress.details;
 
       const updatedUser = {
         ...user,
         addresses: updatedAddresses,
         selectedAddressId,
         address: activeDetails,
-        latitude: activeAddress?.latitude || user.latitude,
-        longitude: activeAddress?.longitude || user.longitude
+        latitude: activeAddress.latitude,
+        longitude: activeAddress.longitude
       };
 
       set({ currentUser: updatedUser });
-      await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(updatedUser));
-      await get().syncWithCloud();
+      try {
+        await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(updatedUser));
+        await get().syncWithCloud();
+      } catch (e) {
+        console.warn('Address sync error:', e);
+      }
     },
     deleteSavedAddress: async (addressId) => {
       const user = get().currentUser;
@@ -739,8 +906,12 @@ export const useAppStore = create<AppState>((set, get) => {
       };
 
       set({ currentUser: updatedUser });
-      await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(updatedUser));
-      await get().syncWithCloud();
+      try {
+        await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(updatedUser));
+        await get().syncWithCloud();
+      } catch (e) {
+        console.warn('Address sync error:', e);
+      }
     },
     selectSavedAddress: async (addressId) => {
       const user = get().currentUser;
@@ -753,13 +924,17 @@ export const useAppStore = create<AppState>((set, get) => {
         ...user,
         selectedAddressId: addressId,
         address: activeDetails,
-        latitude: activeAddress?.latitude || user.latitude,
-        longitude: activeAddress?.longitude || user.longitude
+        latitude: activeAddress?.latitude,
+        longitude: activeAddress?.longitude
       };
 
       set({ currentUser: updatedUser });
-      await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(updatedUser));
-      await get().syncWithCloud();
+      try {
+        await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(updatedUser));
+        await get().syncWithCloud();
+      } catch (e) {
+        console.warn('Address sync error:', e);
+      }
     },
     updateAddress: async (details, latitude, longitude) => {
       const user = get().currentUser;
@@ -795,13 +970,17 @@ export const useAppStore = create<AppState>((set, get) => {
         addresses: updatedAddresses,
         selectedAddressId,
         address: details,
-        latitude: activeAddress?.latitude || latitude || user.latitude,
-        longitude: activeAddress?.longitude || longitude || user.longitude
+        latitude: activeAddress?.latitude,
+        longitude: activeAddress?.longitude
       };
 
       set({ currentUser: updatedUser });
-      await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(updatedUser));
-      await get().syncWithCloud();
+      try {
+        await AsyncStorage.setItem('anjani_customer_user_profile', JSON.stringify(updatedUser));
+        await get().syncWithCloud();
+      } catch (e) {
+        console.warn('Address sync error:', e);
+      }
     },
 
     cart: {},
@@ -845,9 +1024,13 @@ export const useAppStore = create<AppState>((set, get) => {
       const totalAmount = subtotal + deliveryFee + tax;
 
       const orderId = `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-      const uid = get().currentUser?.uid || auth?.currentUser?.uid || 'anonymous-fallback';
+      const uid = get().currentUser?.uid || auth?.currentUser?.uid;
+      if (!uid) {
+        Alert.alert('Error', 'You must be logged in to place an order.');
+        return;
+      }
 
-      const initialStatus = paymentMethod === 'COD' ? 'PLACED' : 'PAYMENT_PENDING';
+      const initialStatus = (paymentMethod === 'COD' || utrNumber) ? 'PLACED' : 'PAYMENT_PENDING';
 
       const newOrder: ActiveOrder = {
         id: orderId,
@@ -858,19 +1041,94 @@ export const useAppStore = create<AppState>((set, get) => {
         customerAddress: address,
         customerPhone: phone,
         status: initialStatus,
+        isDismissed: false,
         riderLat: restaurantCoords.lat,
         riderLng: restaurantCoords.lng,
         restaurantLat: restaurantCoords.lat,
         restaurantLng: restaurantCoords.lng,
-        userLat: userLat !== undefined ? userLat : userCoords.lat,
-        userLng: userLng !== undefined ? userLng : userCoords.lng,
+        userLat: userLat !== undefined ? userLat : (get().currentUser?.latitude !== undefined ? get().currentUser?.latitude : userCoords.lat),
+        userLng: userLng !== undefined ? userLng : (get().currentUser?.longitude !== undefined ? get().currentUser?.longitude : userCoords.lng),
         paymentMethod,
-        utrNumber: (paymentMethod !== 'COD' && utrNumber) ? utrNumber : null,
-        cookingInstructions: cookingInstructions || null,
         createdAt: Date.now(),
       };
 
-      // 1. Initial save to Firestore
+      if (paymentMethod !== 'COD' && utrNumber) {
+        newOrder.utrNumber = utrNumber;
+      }
+      if (cookingInstructions) {
+        newOrder.cookingInstructions = cookingInstructions;
+      }
+
+      // Optimistically add the new order to local activeOrders and update AsyncStorage immediately (instant UI sync)
+      const currentActive = get().activeOrders || [];
+      const updatedActive = [...currentActive.filter(o => o.id !== orderId), newOrder];
+      set({ 
+        cart: {},
+        activeOrders: updatedActive 
+      });
+      AsyncStorage.setItem('anjani_active_orders', JSON.stringify(updatedActive)).catch(() => {});
+
+      // 1. Save to Firestore
+      if (isFirebaseConfigured) {
+        try {
+          const { doc, setDoc } = require('firebase/firestore');
+          const orderRef = doc(db, 'orders', orderId);
+          await setDoc(orderRef, newOrder);
+        } catch (e: any) {
+          console.log('Firestore active order save deferred:', e.message);
+        }
+      }
+    },
+
+    createPendingOrder: async (address, phone, cookingInstructions, userLat, userLng) => {
+      const orderItems = Object.values(get().cart);
+      if (orderItems.length === 0) return null;
+
+      const subtotal = get().getCartTotal();
+      const deliveryFee = 30.0;
+      const tax = Math.round(subtotal * 0.025) + Math.round(subtotal * 0.025);
+      const totalAmount = subtotal + deliveryFee + tax;
+
+      const orderId = `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      const uid = get().currentUser?.uid || auth?.currentUser?.uid;
+      if (!uid) {
+        Alert.alert('Error', 'You must be logged in to place an order.');
+        return null;
+      }
+
+      const newOrder: ActiveOrder = {
+        id: orderId,
+        customerUid: uid,
+        customerName: get().currentUser?.name || 'Customer',
+        items: orderItems,
+        totalAmount,
+        customerAddress: address,
+        customerPhone: phone,
+        status: 'PAYMENT_PENDING',
+        isDismissed: false,
+        riderLat: restaurantCoords.lat,
+        riderLng: restaurantCoords.lng,
+        restaurantLat: restaurantCoords.lat,
+        restaurantLng: restaurantCoords.lng,
+        userLat: userLat !== undefined ? userLat : (get().currentUser?.latitude !== undefined ? get().currentUser?.latitude : userCoords.lat),
+        userLng: userLng !== undefined ? userLng : (get().currentUser?.longitude !== undefined ? get().currentUser?.longitude : userCoords.lng),
+        paymentMethod: 'ONLINE',
+        createdAt: Date.now(),
+      };
+
+      if (cookingInstructions) {
+        newOrder.cookingInstructions = cookingInstructions;
+      }
+
+      // Add to local activeOrders and update AsyncStorage immediately (instant UI sync)
+      const currentActive = get().activeOrders || [];
+      const updatedActive = [...currentActive.filter(o => o.id !== orderId), newOrder];
+      set({ 
+        activeOrders: updatedActive 
+      });
+      AsyncStorage.setItem('anjani_active_orders', JSON.stringify(updatedActive)).catch(() => {});
+
+      // Save to Firestore
       if (isFirebaseConfigured) {
         try {
           const { doc, setDoc } = require('firebase/firestore');
@@ -881,70 +1139,59 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       }
 
-      set({ cart: {}, currentActiveStep: 0 });
+      return orderId;
+    },
 
-      // 2. Razorpay Flow
-      if (paymentMethod !== 'COD') {
+    confirmOrderPayment: async (orderId, razorpayPaymentId) => {
+      // Clear cart
+      set({ cart: {} });
+
+      // Update local active order to PLACED status
+      const currentActive = get().activeOrders || [];
+      const updatedActive = currentActive.map(o => 
+        o.id === orderId 
+          ? { ...o, status: 'PLACED' as OrderStatus, paymentStatus: 'PAID', razorpayPaymentId } 
+          : o
+      );
+      set({ activeOrders: updatedActive });
+      AsyncStorage.setItem('anjani_active_orders', JSON.stringify(updatedActive)).catch(() => {});
+
+      // Update Firestore locally as a safety fallback
+      if (isFirebaseConfigured) {
         try {
-          const RazorpayCheckout = require('react-native-razorpay').default;
-          // Use 10.0.2.2 for Android Emulator connecting to local Vercel runner
-          const API_URL = 'http://10.0.2.2:4000/api'; 
-          
-          const createRes = await fetch(`${API_URL}/createOrder`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: totalAmount, receipt: orderId })
+          const { doc, updateDoc } = require('firebase/firestore');
+          const orderRef = doc(db, 'orders', orderId);
+          await updateDoc(orderRef, {
+            status: 'PLACED',
+            paymentStatus: 'PAID',
+            razorpayPaymentId,
+            updatedAt: Date.now()
           });
-          const orderData = await createRes.json();
+        } catch (e: any) {
+          console.log('Firestore order update safety check deferred:', e.message);
+        }
+      }
+    },
 
-          if (!orderData || !orderData.id) {
-             Alert.alert('Payment Error', 'Failed to connect to secure server.');
-             return;
-          }
+    cancelOrderPayment: async (orderId) => {
+      // Update local active order to CANCELLED status
+      const currentActive = get().activeOrders || [];
+      const updatedActive = currentActive.map(o => 
+        o.id === orderId ? { ...o, status: 'CANCELLED' as OrderStatus } : o
+      );
+      set({ activeOrders: updatedActive });
+      AsyncStorage.setItem('anjani_active_orders', JSON.stringify(updatedActive)).catch(() => {});
 
-          const options = {
-            description: 'Anjani Restaurant Order',
-            image: 'https://i.imgur.com/3g7nmJC.png',
-            currency: 'INR',
-            key: 'rzp_test_dummy', 
-            amount: orderData.amount,
-            name: 'Anjani Restaurant',
-            order_id: orderData.id,
-            prefill: {
-              email: get().currentUser?.email || 'customer@example.com',
-              contact: phone,
-              name: get().currentUser?.name || 'Customer'
-            },
-            theme: { color: '#FF6B00' }
-          };
-
-          const paymentData = await RazorpayCheckout.open(options);
-          
-          const verifyRes = await fetch(`${API_URL}/verifyPayment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              razorpay_order_id: paymentData.razorpay_order_id,
-              razorpay_payment_id: paymentData.razorpay_payment_id,
-              razorpay_signature: paymentData.razorpay_signature,
-              firestore_order_id: orderId 
-            })
+      if (isFirebaseConfigured) {
+        try {
+          const { doc, updateDoc } = require('firebase/firestore');
+          const orderRef = doc(db, 'orders', orderId);
+          await updateDoc(orderRef, {
+            status: 'CANCELLED',
+            updatedAt: Date.now()
           });
-          
-          const verifyData = await verifyRes.json();
-          if (!verifyData.success) {
-            Alert.alert('Verification Failed', 'Invalid payment signature.');
-          }
-          
-        } catch (error: any) {
-          console.log("Payment Error or Cancel:", error);
-          Alert.alert('Payment Cancelled', 'Your payment was not completed.');
-          if (isFirebaseConfigured) {
-             try {
-               const { doc, updateDoc } = require('firebase/firestore');
-               await updateDoc(doc(db, 'orders', orderId), { status: 'CANCELLED' });
-             } catch(e){}
-          }
+        } catch (e: any) {
+          console.log('Firestore order cancel update deferred:', e.message);
         }
       }
     },
@@ -955,12 +1202,13 @@ export const useAppStore = create<AppState>((set, get) => {
       }
       const active = get().activeOrders.find(o => o.id === orderId);
       if (active) {
-        // Only allow dismissing orders that have been DELIVERED — prevents premature removal
-        if (active.status !== 'DELIVERED') {
-          console.warn(`Cannot dismiss order ${orderId}: status is ${active.status}, not DELIVERED`);
-          // Still remove from active list if stuck (safety valve for edge cases)
-          // but don't promote to previousOrders
-          set({ activeOrders: get().activeOrders.filter(o => o.id !== orderId) });
+        // Allow dismissing DELIVERED, CANCELLED, or PAYMENT_PENDING orders
+        if (active.status !== 'DELIVERED' && active.status !== 'CANCELLED' && active.status !== 'PAYMENT_PENDING') {
+          console.warn(`Cannot dismiss order ${orderId}: status is ${active.status}`);
+          // Still remove from active list if stuck (safety valve)
+          const fallbackActive = get().activeOrders.filter(o => o.id !== orderId);
+          set({ activeOrders: fallbackActive });
+          AsyncStorage.setItem('anjani_active_orders', JSON.stringify(fallbackActive)).catch(() => {});
           return;
         }
         const updatedOrders: PreviousOrder[] = [
@@ -970,20 +1218,22 @@ export const useAppStore = create<AppState>((set, get) => {
             timestamp: active.createdAt || Date.now(),
             items: active.items,
             totalAmount: active.totalAmount,
-            status: 'DELIVERED',
+            status: active.status as 'DELIVERED' | 'CANCELLED',
             paymentMethod: active.paymentMethod,
             utrNumber: active.utrNumber,
             cookingInstructions: active.cookingInstructions,
           },
           ...get().previousOrders.filter(o => o.id !== active.id)
         ];
-        
+        const newActiveOrders = get().activeOrders.filter(o => o.id !== orderId);
         set({ 
           previousOrders: updatedOrders,
-          activeOrders: get().activeOrders.filter(o => o.id !== orderId)
+          activeOrders: newActiveOrders
         });
+        
+        AsyncStorage.setItem('anjani_active_orders', JSON.stringify(newActiveOrders)).catch(() => {});
 
-        // Mark order as DELIVERED in Firestore
+        // Mark order as DELIVERED/Dismissed in Firestore
         if (isFirebaseConfigured) {
           try {
             const { doc, updateDoc } = require('firebase/firestore');
@@ -1001,16 +1251,47 @@ export const useAppStore = create<AppState>((set, get) => {
           .then(() => get().syncWithCloud())
           .catch(err => console.error(err));
       } else {
-        set({ activeOrders: get().activeOrders.filter(o => o.id !== orderId) });
+        const newActiveOrders = get().activeOrders.filter(o => o.id !== orderId);
+        set({ activeOrders: newActiveOrders });
+        AsyncStorage.setItem('anjani_active_orders', JSON.stringify(newActiveOrders)).catch(() => {});
       }
     },
 
     previousOrders: [],
     reorder: (items) => {
+      const currentMenu = get().menuItems;
       const newCart: { [itemId: string]: OrderItem } = {};
+      let someUnavailable = false;
+      
       items.forEach((item) => {
-        newCart[item.item.id] = { item: item.item, quantity: item.quantity };
+        const liveItem = currentMenu.find(m => m.id === item.item.id);
+        if (liveItem && liveItem.isAvailable && !liveItem.isDeleted) {
+          newCart[liveItem.id] = { 
+            item: liveItem, // use latest menu item data (price, name)
+            quantity: item.quantity 
+          };
+        } else {
+          someUnavailable = true;
+        }
       });
+      
+      if (Object.keys(newCart).length === 0) {
+        try {
+          const { Alert, Platform } = require('react-native');
+          if (Platform.OS === 'web') window.alert("None of the items from this order are currently available.");
+          else Alert.alert("Unavailable", "None of the items from this order are currently available.");
+        } catch(e) {}
+        return;
+      }
+      
+      if (someUnavailable) {
+        try {
+          const { Alert, Platform } = require('react-native');
+          if (Platform.OS === 'web') window.alert("Some items are no longer available and were removed from your cart.");
+          else Alert.alert("Items Removed", "Some items are no longer available and were removed from your cart.");
+        } catch(e) {}
+      }
+
       set({ cart: newCart });
     },
 
@@ -1020,17 +1301,19 @@ export const useAppStore = create<AppState>((set, get) => {
     menuItems: MenuItems,
     chatMessages: {},
     sendChatMessage: (orderId, senderRole, senderName, text) => {
+      const trimmedText = text.trim();
+      if (!trimmedText) return;
+
       const newMessage: ChatMessage = {
         id: `MSG-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         orderId,
         senderRole,
         senderName,
-        text: text.trim(),
+        text: trimmedText,
         timestamp: Date.now(),
       };
       
-      const current = get().chatMessages[orderId] || [];
-      set({ chatMessages: { ...get().chatMessages, [orderId]: [...current, newMessage] } });
+      set(state => ({ chatMessages: { ...state.chatMessages, [orderId]: [...(state.chatMessages[orderId] || []), newMessage] } }));
 
       if (isFirebaseConfigured) {
         try {
@@ -1230,20 +1513,34 @@ export const useAppStore = create<AppState>((set, get) => {
 // Anonymous auth is NOT used — initCloudListeners works with or without a signed-in user
 // since Firestore rules now allow public reads on orders/menu/settings.
 if (isFirebaseConfigured) {
+  // Prevent hot-reload memory leaks
+  if ((globalThis as any)._anjaniCustomerInterval) clearInterval((globalThis as any)._anjaniCustomerInterval);
+  if ((globalThis as any)._anjaniCustomerUnsubAuth) (globalThis as any)._anjaniCustomerUnsubAuth();
+
   // Always start listeners immediately — no auth required for reads
   useAppStore.getState().initCloudListeners();
   useAppStore.getState().checkNightMode();
   
   // Set up periodic interval to check night mode every 1 minute
-  setInterval(() => {
+  (globalThis as any)._anjaniCustomerInterval = setInterval(() => {
     useAppStore.getState().checkNightMode();
   }, 60000);
 
-  // Also re-init when a real user signs in (e.g. after checkout login)
-  onAuthStateChanged(auth, (user) => {
+  // Also re-init when a real user signs in (e.g. after checkout login) and auto-recover detailed profile on page reload
+  (globalThis as any)._anjaniCustomerUnsubAuth = onAuthStateChanged(auth, async (user) => {
     if (user) {
       console.log('Customer Firebase user UID:', user.uid);
       useAppStore.getState().initCloudListeners();
+      
+      try {
+        const store = useAppStore.getState();
+        if (!store.currentUser || store.currentUser.uid !== user.uid) {
+          console.log('Silently recovering customer profile from Firestore on reload...');
+          await store.loginFromCloud(user.uid);
+        }
+      } catch (e) {
+        console.warn('Auto-session recovery failed:', e);
+      }
     }
   });
 }

@@ -1,3 +1,8 @@
+/**
+ * @file NightModeScreen.tsx
+ * @description Displays a "We're closed" overlay with beautiful night-themed micro-animations.
+ * Uses `react-native-reanimated` for smooth pulsing and floating animations.
+ */
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Animated, { 
@@ -14,17 +19,29 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
+/**
+ * Props for the NightModeScreen component.
+ */
 interface NightModeScreenProps {
+  /** The time the restaurant reopens, e.g., "8:00 AM" */
   reopenTime?: string;
 }
 
+/**
+ * NightModeScreen Component.
+ * Renders an animated moon, floating 'Z's, and stars over a dark gradient background.
+ *
+ * @param {NightModeScreenProps} props
+ */
 export const NightModeScreen = ({ reopenTime = "8:00 AM" }: NightModeScreenProps) => {
+  // Shared values for reanimated animations
   const pulse = useSharedValue(0);
   const float1 = useSharedValue(0);
   const float2 = useSharedValue(0);
   const float3 = useSharedValue(0);
 
   useEffect(() => {
+    // Start infinite pulse animation for the moon's glow
     pulse.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
@@ -34,6 +51,7 @@ export const NightModeScreen = ({ reopenTime = "8:00 AM" }: NightModeScreenProps
       true
     );
 
+    // Start staggered float animations for the 'Z's (snoring effect)
     float1.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.ease) }),

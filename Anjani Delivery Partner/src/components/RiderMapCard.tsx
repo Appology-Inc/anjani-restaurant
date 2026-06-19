@@ -1,3 +1,8 @@
+/**
+ * @file RiderMapCard.tsx
+ * @description Provides a live map view tracking the rider, restaurant, and destination.
+ * Includes a fallback isometric view for web or unsupported platforms.
+ */
 import React, { useRef, useEffect } from 'react';
 import {
   StyleSheet,
@@ -13,8 +18,6 @@ import { ActiveOrder } from '../state/AppStore';
 
 // ─── Map Imports with Safety Guards ──────────────────────────────────────────
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from './Maps';
-import * as Location from 'expo-location';
-import { useState } from 'react';
 
 // Sleek dark-mode style for React Native Maps
 const mapDarkStyle = [
@@ -31,13 +34,18 @@ const mapDarkStyle = [
   { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#000000" }] }
 ];
 
+/**
+ * Component that displays a live map tracking delivery progress.
+ * Renders native maps on iOS/Android and an isometric illustration on Web.
+ * 
+ * @param props - Component properties.
+ * @param props.order - The active order details used to display locations.
+ */
 export function RiderMapCard({ order }: { order: ActiveOrder }) {
   const mapRef = useRef<any>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const [liveCoords, setLiveCoords] = useState({ lat: order.riderLat, lng: order.riderLng });
-
-  // Pulsating dot indicator loop
+  // Pulsating dot indicator loop for the rider icon
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -53,37 +61,21 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
         }),
       ])
     ).start();
-
-    // Fetch immediate live location to override mock/stale coordinates
-    let watcher: any = null;
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const initLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          setLiveCoords({ lat: initLoc.coords.latitude, lng: initLoc.coords.longitude });
-          
-          watcher = await Location.watchPositionAsync(
-            { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 5 },
-            (loc) => setLiveCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
-          );
-        }
-      } catch (e) {}
-    })();
-    
-    return () => {
-      if (watcher && watcher.remove) watcher.remove();
-    };
   }, []);
 
+  /**
+   * Adjusts the map camera to encompass all relevant points: 
+   * the restaurant, the customer, and the rider.
+   */
   const recenterMap = () => {
     if (mapRef.current) {
       try {
         const coords = [
           { latitude: order.restaurantLat, longitude: order.restaurantLng },
           { latitude: order.userLat, longitude: order.userLng },
-          { latitude: liveCoords.lat, longitude: liveCoords.lng }
+          { latitude: order.riderLat, longitude: order.riderLng }
         ];
+        // Ensure all coordinates are visible with some padding
         mapRef.current.fitToCoordinates(coords, {
           edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
           animated: true
@@ -94,14 +86,15 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
     }
   };
 
-  // Responsive camera framing on live rider GPS updates
+  // Responsive camera framing on live rider GPS updates.
+  // Delay the recentering slightly to ensure map has fully rendered.
   useEffect(() => {
     if (mapRef.current) {
       setTimeout(() => {
         recenterMap();
       }, 600);
     }
-  }, [liveCoords.lat, liveCoords.lng]);
+  }, [order.riderLat, order.riderLng]);
 
   const showLiveMap = Platform.OS !== 'web';
   
@@ -111,18 +104,62 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
         <MapView
           ref={mapRef}
           style={styles.map}
+          provider={PROVIDER_DEFAULT}
           initialRegion={{
             latitude: (order.restaurantLat + order.userLat) / 2,
             longitude: (order.restaurantLng + order.userLng) / 2,
             latitudeDelta: Math.abs(order.restaurantLat - order.userLat) * 1.8 || 0.05,
             longitudeDelta: Math.abs(order.restaurantLng - order.userLng) * 1.8 || 0.05,
           }}
-          markers={[
-            { lat: order.restaurantLat, lng: order.restaurantLng, type: 'restaurant' },
-            { lat: order.userLat, lng: order.userLng, type: 'customer' },
-            { lat: liveCoords.lat, lng: liveCoords.lng, type: 'rider' }
-          ]}
-        />
+          scrollEnabled={true}
+          zoomEnabled={true}
+          customMapStyle={mapDarkStyle}
+        >
+          {/* Restaurant Hub */}
+          <Marker
+            coordinate={{ latitude: order.restaurantLat, longitude: order.restaurantLng }}
+            title="Anjani Restaurant"
+            description="Pickup Location"
+          >
+            <View style={[styles.mapIconWrap, { backgroundColor: '#10B981', borderColor: '#10B981' }]}>
+              <Ionicons name="restaurant" size={13} color="#FFF" />
+            </View>
+          </Marker>
+
+          {/* Destination Hub */}
+          <Marker
+            coordinate={{ latitude: order.userLat, longitude: order.userLng }}
+            title="Customer Location"
+            description={order.customerAddress}
+          >
+            <View style={styles.mapIconWrap}>
+              <Ionicons name="home" size={13} color="#FFF" />
+            </View>
+          </Marker>
+
+          {/* Gliding Rider */}
+          <Marker
+            coordinate={{ latitude: order.riderLat, longitude: order.riderLng }}
+            title="You"
+            description="Your current location"
+          >
+            <Animated.View style={[styles.mapIconWrap, { backgroundColor: '#3B82F6', borderColor: '#3B82F6', transform: [{ scale: pulseAnim }] }]}>
+              <Ionicons name="bicycle" size={13} color="#FFF" />
+            </Animated.View>
+          </Marker>
+
+          {/* Dash route polyline */}
+          <Polyline
+            coordinates={[
+              { latitude: order.restaurantLat, longitude: order.restaurantLng },
+              { latitude: order.riderLat, longitude: order.riderLng },
+              { latitude: order.userLat, longitude: order.userLng },
+            ]}
+            strokeColor="#FF6D00"
+            strokeWidth={3}
+            lineDashPattern={[6, 6]}
+          />
+        </MapView>
         
         <TouchableOpacity 
           style={styles.recenterBtn} 
@@ -182,7 +219,7 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
       <View style={styles.fallbackStats}>
         <Ionicons name="compass-outline" size={15} color="#FF6B00" />
         <Text style={styles.fallbackStatsTxt}>
-          Your Coordinates: <Text style={styles.statsCoord}>{liveCoords.lat.toFixed(5)}, {liveCoords.lng.toFixed(5)}</Text>
+          Your Coordinates: <Text style={styles.statsCoord}>{order.riderLat.toFixed(5)}, {order.riderLng.toFixed(5)}</Text>
         </Text>
       </View>
     </View>

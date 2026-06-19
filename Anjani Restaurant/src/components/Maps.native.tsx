@@ -1,11 +1,27 @@
+/**
+ * @file Maps.native.tsx
+ * @description Native implementation of the MapView component for iOS and Android.
+ * It renders an interactive Leaflet map inside a react-native-webview and 
+ * communicates bi-directionally to handle map region changes and animations.
+ */
 import React, { useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+/** Dummy Marker component for compatibility */
 export const Marker = () => null;
+/** Dummy Polyline component for compatibility */
 export const Polyline = () => null;
+
 export const PROVIDER_DEFAULT = 'default';
 
+/**
+ * MapView component for native mobile platforms.
+ * Injects a full HTML document containing Leaflet.js into a WebView.
+ * 
+ * @param {any} props - Component properties (initialRegion, markers, scrollEnabled, zoomEnabled, etc.)
+ * @param {React.Ref} ref - Forwarded ref for imperative map controls.
+ */
 const MapView = React.forwardRef(({ initialRegion, markers = [], style, onRegionChange, onRegionChangeComplete, scrollEnabled = true, zoomEnabled = true }: any, ref: any) => {
   const webViewRef = useRef<WebView>(null);
 

@@ -1,7 +1,14 @@
+/**
+ * @file address-setup.tsx
+ * @description Provides a comprehensive map-based interface for users to select
+ * and save their delivery address. Features reverse geocoding, autocomplete search,
+ * and intricate map animations.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, TextInput, 
-  KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator, Modal, Animated as RNAnimated, Keyboard, Easing
+  KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator, Modal, Animated as RNAnimated, Keyboard, Easing, Alert
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -13,6 +20,12 @@ import { useAppStore } from '../state/AppStore';
 import MapView, { Marker, PROVIDER_DEFAULT } from '../components/Maps';
 import * as Location from 'expo-location';
 
+/**
+ * Scale helper for responsive UI sizing.
+ * 
+ * @param {number} size - Base size to normalize.
+ * @returns {number} The normalized pixel value.
+ */
 const normalize = (size: number) => Math.round(size * 1.1);
 
 const mapDarkStyle = [
@@ -36,6 +49,15 @@ const mapDarkStyle = [
   { "featureType": "water", "elementType": "labels.text.stroke", "stylers": [{ "color": "#17263c" }] }
 ];
 
+/**
+ * AddressSetupScreen Component
+ * 
+ * This screen guides the user through setting up a delivery location.
+ * It integrates mapping, location permissions, reverse geocoding, 
+ * and an interactive UI for saving custom addresses (Home, Work, etc.).
+ * 
+ * @returns {React.JSX.Element} The Address Setup screen interface.
+ */
 export default function AddressSetupScreen() {
   const router = useRouter();
   const { newLocation } = useLocalSearchParams<{ newLocation: string }>();
@@ -51,9 +73,40 @@ export default function AddressSetupScreen() {
   const [loading, setLoading] = useState(false);
   const [isRecentering, setIsRecentering] = useState(false);
 
+  // Web address autocomplete state
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const fetchAddressSuggestions = (query: string) => {
+    setArea(query);
+    if (!query.trim()) {
+      setAddressSuggestions([]);
+      return;
+    }
+    
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    
+    setIsSearchingAddress(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=IN&addressdetails=1`, {
+          headers: { 'User-Agent': 'AnjaniApp/1.0' }
+        });
+        const data = await res.json();
+        setAddressSuggestions(data || []);
+      } catch (e) {
+        console.warn('Autocomplete fetch error:', e);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 250);
+  };
+
   // Map state
   const [isExpanded, setIsExpanded] = useState(false);
   const [pinCoords, setPinCoords] = useState<{latitude: number, longitude: number} | null>(
+    Platform.OS === 'web' ? null :
     bootLocation ? { latitude: bootLocation.latitude, longitude: bootLocation.longitude } : 
     (currentUser?.latitude && currentUser?.longitude) ? { latitude: currentUser.latitude, longitude: currentUser.longitude } :
     null
@@ -131,14 +184,64 @@ export default function AddressSetupScreen() {
       ])
     ).start();
 
-    // Initial load from boot location or current user
-    if (bootLocation) {
+    // Initial location detection
+    if (Platform.OS === 'web') {
+      // On web: ALWAYS use browser GPS as primary source
+      (async () => {
+        try {
+          const coords = await new Promise<{ latitude: number; longitude: number } | null>((resolve) => {
+            if (!navigator.geolocation) { resolve(null); return; }
+            // Try standard Wi-Fi/cellular geolocation first (extremely fast and accurate on desktops)
+            navigator.geolocation.getCurrentPosition(
+              pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+              () => {
+                // If that fails, try with high accuracy just in case
+                navigator.geolocation.getCurrentPosition(
+                  pos2 => resolve({ latitude: pos2.coords.latitude, longitude: pos2.coords.longitude }),
+                  async () => {
+                    // Fallback to IP geolocation if both fail
+                    try {
+                      const ipRes = await fetch('https://ipapi.co/json/');
+                      const ipData = await ipRes.json();
+                      if (ipData && ipData.latitude && ipData.longitude) {
+                        resolve({ latitude: ipData.latitude, longitude: ipData.longitude });
+                        return;
+                      }
+                    } catch (e) {
+                      console.warn('First load IP fallback failed:', e);
+                    }
+                    resolve(null);
+                  },
+                  { timeout: 5000, enableHighAccuracy: true }
+                );
+              },
+              { timeout: 4000, enableHighAccuracy: false, maximumAge: 30000 }
+            );
+          });
+
+          if (coords) {
+            setPinCoords(coords);
+            reverseGeocode(coords);
+          } else {
+            // GPS and IP both failed — fall back to restaurant
+            const fallback = { latitude: 17.0765705, longitude: 82.1340028 };
+            setPinCoords(fallback);
+            reverseGeocode(fallback);
+          }
+        } catch (e) {
+          console.warn("Web location error:", e);
+          const fallback = { latitude: 17.0765705, longitude: 82.1340028 };
+          setPinCoords(fallback);
+          reverseGeocode(fallback);
+        }
+      })();
+    } else if (bootLocation) {
       setPinCoords({ latitude: bootLocation.latitude, longitude: bootLocation.longitude });
       if (bootLocation.address) setArea(bootLocation.address);
     } else if (currentUser?.latitude && currentUser?.longitude) {
       setPinCoords({ latitude: currentUser.latitude, longitude: currentUser.longitude });
     } else {
-      // Fallback to live location if nothing else is available
+      // Native fallback to live GPS
       (async () => {
         try {
           const { status } = await Location.requestForegroundPermissionsAsync();
@@ -157,8 +260,6 @@ export default function AddressSetupScreen() {
         } catch (e) {
           console.warn("Location fetch error:", e);
         }
-        
-        // Fallback to exact Anjani Restaurant coordinates
         const peddapuramCoords = { latitude: 17.0765705, longitude: 82.1340028 };
         setPinCoords(peddapuramCoords);
         reverseGeocode(peddapuramCoords);
@@ -196,23 +297,43 @@ export default function AddressSetupScreen() {
 
   const reverseGeocode = async (coords: { latitude: number, longitude: number }) => {
     try {
-      const [place] = await Location.reverseGeocodeAsync(coords);
-      if (place) {
-        const addrParts = [
-          place.name,
-          place.streetNumber, 
-          place.street, 
-          place.subregion,
-          place.district, 
-          place.city, 
-          place.region,
-          place.postalCode
-        ].filter(Boolean);
-        
-        // Deduplicate strings to avoid "Peddapuram, Peddapuram"
-        const addr = Array.from(new Set(addrParts)).join(', ');
-        
-        if (addr) setArea(addr);
+      if (Platform.OS === 'web') {
+        // Use OpenStreetMap Nominatim API (free, no API key, works on web)
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&addressdetails=1`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
+        const data = await res.json();
+        if (data) {
+          const addrObj = data.address || {};
+          const house = addrObj.house_number || addrObj.building || addrObj.amenity || '';
+          const road = addrObj.road || addrObj.street || '';
+          const neighborhood = addrObj.neighbourhood || addrObj.suburb || addrObj.city_district || '';
+          const city = addrObj.city || addrObj.town || addrObj.village || '';
+          const state = addrObj.state || '';
+          const postcode = addrObj.postcode || '';
+          
+          const parts = [house, road, neighborhood, city, state, postcode].filter(Boolean);
+          const addr = parts.join(', ');
+          setArea(addr || data.display_name);
+        }
+      } else {
+        // Native: use expo-location (works perfectly on Android/iOS)
+        const [place] = await Location.reverseGeocodeAsync(coords);
+        if (place) {
+          const addrParts = [
+            place.name,
+            place.streetNumber, 
+            place.street, 
+            place.subregion,
+            place.district, 
+            place.city, 
+            place.region,
+            place.postalCode
+          ].filter(Boolean);
+          const addr = Array.from(new Set(addrParts)).join(', ');
+          if (addr) setArea(addr);
+        }
       }
     } catch (e) {
       console.log('Reverse geocoding failed', e);
@@ -321,16 +442,26 @@ export default function AddressSetupScreen() {
 
       {/* Top Minimap / Expanded Map */}
       <RNAnimated.View style={[styles.minimapContainer, { paddingTop: mapPaddingTop, paddingBottom: mapPaddingBottom, borderBottomWidth: mapBorderBottom, opacity: minimapOpacity }]}>
-        <RNAnimated.View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: titleMargin, paddingHorizontal: 20, opacity: formOpacity, height: titleHeight }}>
-          <Text style={styles.headerTitle}>Delivery Location</Text>
-          <View style={{ marginLeft: 12, alignItems: 'center', justifyContent: 'center' }}>
-            <RNAnimated.View style={[styles.iconPulse, { transform: [{ scale: pulseScale }], opacity: pulseOpacity }]} />
-            <View style={styles.iconCircle}>
-              <RNAnimated.View style={{ transform: [{ translateY: pinTranslateY }] }}>
-                <Ionicons name="location" size={16} color={Colors.primary} />
-              </RNAnimated.View>
+        <RNAnimated.View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: titleMargin, paddingHorizontal: 20, opacity: formOpacity, height: titleHeight }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.headerTitle}>Delivery Location</Text>
+            <View style={{ marginLeft: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <RNAnimated.View style={[styles.iconPulse, { transform: [{ scale: pulseScale }], opacity: pulseOpacity }]} />
+              <View style={styles.iconCircle}>
+                <RNAnimated.View style={{ transform: [{ translateY: pinTranslateY }] }}>
+                  <Ionicons name="location" size={16} color={Colors.primary} />
+                </RNAnimated.View>
+              </View>
             </View>
           </View>
+
+          <TouchableOpacity
+            onPress={() => router.replace('/(tabs)')}
+            style={{ padding: 4 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close-circle-outline" size={24} color={Colors.muted ?? '#9A8A72'} />
+          </TouchableOpacity>
         </RNAnimated.View>
         
         <RNAnimated.View style={[styles.minimapWrap, { height: mapHeight, borderRadius: mapBorderRadius, marginHorizontal: mapMarginHorizontal, borderWidth: mapBorderWidth }]}>
@@ -343,8 +474,8 @@ export default function AddressSetupScreen() {
                 initialRegion={{
                   latitude: pinCoords.latitude,
                   longitude: pinCoords.longitude,
-                  latitudeDelta: 0.001,
-                  longitudeDelta: 0.001,
+                  latitudeDelta: 0.005,
+                  longitudeDelta: 0.005,
                 }}
                 customMapStyle={mapDarkStyle}
                 showsUserLocation={true}
@@ -354,14 +485,18 @@ export default function AddressSetupScreen() {
                 pitchEnabled={true}
                 rotateEnabled={true}
                 onRegionChange={() => {
-                  RNAnimated.timing(capturePinAnim, { toValue: -15, duration: 150, useNativeDriver: true }).start();
-                  RNAnimated.timing(captureShadowAnim, { toValue: 0.4, duration: 150, useNativeDriver: true }).start();
+                  if (Platform.OS !== 'web') {
+                    RNAnimated.timing(capturePinAnim, { toValue: -15, duration: 150, useNativeDriver: true }).start();
+                    RNAnimated.timing(captureShadowAnim, { toValue: 0.4, duration: 150, useNativeDriver: true }).start();
+                  }
                 }}
                 onRegionChangeComplete={(region: any) => {
                   const newCoords = { latitude: region.latitude, longitude: region.longitude };
                   setPinCoords(newCoords);
-                  RNAnimated.timing(capturePinAnim, { toValue: 0, duration: 250, easing: Easing.bounce, useNativeDriver: true }).start();
-                  RNAnimated.timing(captureShadowAnim, { toValue: 1, duration: 250, easing: Easing.bounce, useNativeDriver: true }).start();
+                  if (Platform.OS !== 'web') {
+                    RNAnimated.timing(capturePinAnim, { toValue: 0, duration: 250, easing: Easing.bounce, useNativeDriver: true }).start();
+                    RNAnimated.timing(captureShadowAnim, { toValue: 1, duration: 250, easing: Easing.bounce, useNativeDriver: true }).start();
+                  }
                   reverseGeocode(newCoords);
                 }}
               />
@@ -397,29 +532,65 @@ export default function AddressSetupScreen() {
 
               {/* Default Minimap Overlay (Hidden when expanded) */}
               <RNAnimated.View style={[styles.minimapOverlay, { opacity: formOpacity }]} pointerEvents={isExpanded ? 'none' : 'box-none'}>
-                {/* Top Right Recenter Button with Live Pulse */}
+                {/* Top Left Recenter Button */}
                 <TouchableOpacity 
-                  style={[styles.recenterFab, { position: 'absolute', top: 10, right: 10 }]} 
+                  style={[styles.recenterFab, { position: 'absolute', top: 10, left: 10 }]} 
                   onPress={async () => {
                     if (isRecentering) return;
                     setIsRecentering(true);
                     try {
-                      const { status } = await Location.requestForegroundPermissionsAsync();
-                      if (status !== 'granted') return;
+                      let newCoords: any = null;
+                      if (Platform.OS === 'web') {
+                        newCoords = await new Promise((resolve) => {
+                          if (!navigator.geolocation) { resolve(null); return; }
+                          // Try standard Wi-Fi/cellular geolocation first (extremely fast and accurate on desktops)
+                          navigator.geolocation.getCurrentPosition(
+                            pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                            () => {
+                              // If that fails, try with high accuracy just in case
+                              navigator.geolocation.getCurrentPosition(
+                                pos2 => resolve({ latitude: pos2.coords.latitude, longitude: pos2.coords.longitude }),
+                                async () => {
+                                  // Fallback to IP geolocation if both fail
+                                  try {
+                                    const ipRes = await fetch('https://ipapi.co/json/');
+                                    const ipData = await ipRes.json();
+                                    if (ipData && ipData.latitude && ipData.longitude) {
+                                      resolve({ latitude: ipData.latitude, longitude: ipData.longitude });
+                                      return;
+                                    }
+                                  } catch (e) {
+                                    console.warn('Minimap IP fallback failed:', e);
+                                  }
+                                  resolve(null);
+                                },
+                                { timeout: 5000, enableHighAccuracy: true }
+                              );
+                            },
+                            { timeout: 4000, enableHighAccuracy: false }
+                          );
+                        });
+                      } else {
+                        const { status } = await Location.requestForegroundPermissionsAsync();
+                        if (status !== 'granted') throw new Error('Permission denied');
+                        let loc = await Location.getLastKnownPositionAsync();
+                        if (!loc) loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                        if (loc) newCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+                      }
                       
-                      let loc = await Location.getLastKnownPositionAsync();
-                      if (!loc) loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                      
-                      if (!loc) return;
-                      const newCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-                      
-                      mapRef.current?.animateToRegion({
-                        latitude: newCoords.latitude,
-                        longitude: newCoords.longitude,
-                        latitudeDelta: 0.001,
-                        longitudeDelta: 0.001,
-                      }, 1000);
-                      reverseGeocode(newCoords);
+                      if (newCoords) {
+                        setPinCoords(newCoords);
+                        reverseGeocode(newCoords);
+                        mapRef.current?.animateToRegion({
+                          latitude: newCoords.latitude, longitude: newCoords.longitude,
+                          latitudeDelta: 0.005, longitudeDelta: 0.005,
+                        }, 1000);
+                      } else {
+                        Alert.alert(
+                          "Location Access Offline",
+                          "We couldn't fetch your location. Please check your browser's location settings and allow location access, or enter your address manually."
+                        );
+                      }
                     } catch (e) {
                       console.warn('Could not fetch location:', e);
                     } finally {
@@ -446,38 +617,79 @@ export default function AddressSetupScreen() {
                     <Ionicons name="arrow-back" size={24} color="#FFF" />
                   </TouchableOpacity>
                   <Text style={styles.modalTitle}>Drag map to adjust</Text>
-                  <TouchableOpacity 
-                    style={styles.recenterFab} 
-                    onPress={async () => {
-                      if (isRecentering) return;
-                      setIsRecentering(true);
-                      try {
+                  <View style={{ width: 40 }} />
+                </View>
+
+                {/* Floating Recenter Button */}
+                <TouchableOpacity 
+                  style={[styles.recenterFab, { position: 'absolute', top: Math.max(insets.top, 20) + 100, right: 20 }]} 
+                  onPress={async () => {
+                    if (isRecentering) return;
+                    setIsRecentering(true);
+                    try {
+                      let newCoords: any = null;
+                      if (Platform.OS === 'web') {
+                        newCoords = await new Promise((resolve) => {
+                          if (!navigator.geolocation) { resolve(null); return; }
+                          // Try standard Wi-Fi/cellular geolocation first (extremely fast and accurate on desktops)
+                          navigator.geolocation.getCurrentPosition(
+                            pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                            () => {
+                              // If that fails, try with high accuracy just in case
+                              navigator.geolocation.getCurrentPosition(
+                                pos2 => resolve({ latitude: pos2.coords.latitude, longitude: pos2.coords.longitude }),
+                                async () => {
+                                  // Fallback to IP geolocation if both fail
+                                  try {
+                                    const ipRes = await fetch('https://ipapi.co/json/');
+                                    const ipData = await ipRes.json();
+                                    if (ipData && ipData.latitude && ipData.longitude) {
+                                      resolve({ latitude: ipData.latitude, longitude: ipData.longitude });
+                                      return;
+                                    }
+                                  } catch (e) {
+                                    console.warn('Expanded Map IP fallback failed:', e);
+                                  }
+                                  resolve(null);
+                                },
+                                { timeout: 5000, enableHighAccuracy: true }
+                              );
+                            },
+                            { timeout: 4000, enableHighAccuracy: false }
+                          );
+                        });
+                      } else {
                         const { status } = await Location.requestForegroundPermissionsAsync();
-                        if (status !== 'granted') return;
-                        
+                        if (status !== 'granted') throw new Error('Permission denied');
                         let loc = await Location.getLastKnownPositionAsync();
                         if (!loc) loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                        
-                        if (!loc) return;
-                        const newCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-                        mapRef.current?.animateToRegion({
-                          latitude: newCoords.latitude,
-                          longitude: newCoords.longitude,
-                          latitudeDelta: 0.001,
-                          longitudeDelta: 0.001,
-                        }, 1000);
-                      } catch (e) {
-                        console.warn('Could not fetch location:', e);
-                      } finally {
-                        setIsRecentering(false);
+                        if (loc) newCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
                       }
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <RNAnimated.View style={{ position: 'absolute', width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(66, 133, 244, 0.4)', transform: [{ scale: pulseScale }], opacity: pulseOpacity }} />
-                    {isRecentering ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name="locate" size={20} color={Colors.primary} />}
-                  </TouchableOpacity>
-                </View>
+                      
+                      if (newCoords) {
+                        setPinCoords(newCoords);
+                        reverseGeocode(newCoords);
+                        mapRef.current?.animateToRegion({
+                          latitude: newCoords.latitude, longitude: newCoords.longitude,
+                          latitudeDelta: 0.005, longitudeDelta: 0.005,
+                        }, 1000);
+                      } else {
+                        Alert.alert(
+                          "Location Access Offline",
+                          "We couldn't fetch your location. Please check your browser's location settings and allow location access, or enter your address manually."
+                        );
+                      }
+                    } catch (e) {
+                      console.warn('Could not fetch location:', e);
+                    } finally {
+                      setIsRecentering(false);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <RNAnimated.View style={{ position: 'absolute', width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(66, 133, 244, 0.4)', transform: [{ scale: pulseScale }], opacity: pulseOpacity }} />
+                  {isRecentering ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name="locate" size={20} color={Colors.primary} />}
+                </TouchableOpacity>
 
                 {/* Bottom Actions */}
                 <View style={[styles.modalFooter, { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: Math.max(insets.bottom, 24) }]}>
@@ -563,13 +775,60 @@ export default function AddressSetupScreen() {
               <TextInput
                 style={[styles.input, { height: normalize(70) }]}
                 value={area}
-                onChangeText={setArea}
+                onChangeText={(text) => {
+                  if (Platform.OS === 'web') {
+                    fetchAddressSuggestions(text);
+                  } else {
+                    setArea(text);
+                  }
+                }}
                 placeholder="Locality, City, State"
                 placeholderTextColor="rgba(255,255,255,0.3)"
                 multiline
                 textAlignVertical="top"
               />
-              <Text style={styles.helperText}>Auto-filled from map pin. You can edit if needed.</Text>
+              {isSearchingAddress && (
+                <ActivityIndicator size="small" color={Colors.primary} style={{ alignSelf: 'flex-start', marginTop: 4 }} />
+              )}
+              {addressSuggestions.length > 0 && (
+                <View style={styles.suggestionsBox}>
+                  {addressSuggestions.map((item, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.suggestionRow}
+                      onPress={() => {
+                        const newCoords = { latitude: parseFloat(item.lat), longitude: parseFloat(item.lon) };
+                        setPinCoords(newCoords);
+                        
+                        const addrObj = item.address || {};
+                        const house = addrObj.house_number || addrObj.building || addrObj.amenity || '';
+                        const road = addrObj.road || addrObj.street || '';
+                        const neighborhood = addrObj.neighbourhood || addrObj.suburb || addrObj.city_district || '';
+                        const city = addrObj.city || addrObj.town || addrObj.village || '';
+                        const state = addrObj.state || '';
+                        const postcode = addrObj.postcode || '';
+                        
+                        const parts = [house, road, neighborhood, city, state, postcode].filter(Boolean);
+                        const addr = parts.join(', ');
+                        setArea(addr || item.display_name);
+                        setAddressSuggestions([]);
+
+                        // Recenter Leaflet map pin to exact searched location
+                        mapRef.current?.animateToRegion({
+                          latitude: newCoords.latitude,
+                          longitude: newCoords.longitude,
+                          latitudeDelta: 0.005,
+                          longitudeDelta: 0.005,
+                        }, 1000);
+                      }}
+                    >
+                      <Ionicons name="location-outline" size={14} color={Colors.muted} style={{ marginRight: 6 }} />
+                      <Text style={styles.suggestionText} numberOfLines={2}>{item.display_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              <Text style={styles.helperText}>Auto-filled from map pin. On website, you can search / type to find your exact location.</Text>
             </View>
 
             <View style={styles.inputGroup}>
@@ -617,6 +876,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark,
+    overflow: 'hidden',
   },
   minimapContainer: {
     backgroundColor: 'transparent',
@@ -874,5 +1134,26 @@ const styles = StyleSheet.create({
     color: Colors.surface,
     fontSize: normalize(14),
     fontWeight: 'bold',
+  },
+  suggestionsBox: {
+    marginTop: 8,
+    backgroundColor: Colors.card ?? '#2C2C2E',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border ?? 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border ?? 'rgba(255,255,255,0.08)',
+  },
+  suggestionText: {
+    fontSize: 13,
+    color: Colors.text,
+    flex: 1,
   },
 });

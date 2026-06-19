@@ -1,82 +1,38 @@
+/**
+ * @fileoverview Rider Dashboard tab screen for the Anjani Delivery Partner application.
+ * This screen displays the rider's active, ready-to-dispatch, and new order requests,
+ * along with simulated navigation, chat capabilities, and order status updates.
+ */
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, StatusBar, TextInput, Platform, FlatList, SectionList, KeyboardAvoidingView, Modal, SafeAreaView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, StatusBar, TextInput, Platform, FlatList, SectionList, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore, ActiveOrder } from '../../state/AppStore';
 import { Colors } from '../../constants/Colors';
-import { NightModeScreen } from '../../components/NightModeScreen';
 import { OrderDeliveryCard } from '../../components/OrderDeliveryCard';
 import { MemoizedChatBubble } from '../../components/MemoizedChatBubble';
 import { useRouter } from 'expo-router';
-import AnimatedReanimated, { LinearTransition, FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, interpolate, Easing } from 'react-native-reanimated';
-import * as Location from 'expo-location';
+import AnimatedReanimated, { LinearTransition } from 'react-native-reanimated';
 
 const scale = Math.min(require('react-native').Dimensions.get('window').width / 375, 1.2);
+/**
+ * Normalizes a given size based on the device's screen width.
+ * @param {number} size - The original size to normalize.
+ * @returns {number} The normalized and rounded size.
+ */
 const normalize = (size: number) => Math.round(size * scale);
 
-const RiderPremiumOfflineBanner = ({ reason }: { reason: string }) => {
-  const pulse = useSharedValue(0);
-
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const animatedGlowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(pulse.value, [0, 1], [0.3, 0.7]),
-    transform: [{ scale: interpolate(pulse.value, [0, 1], [0.98, 1.02]) }],
-  }));
-
-  const animatedIconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 1.1]) }],
-  }));
-
-  return (
-    <AnimatedReanimated.View entering={FadeInDown.duration(700).springify()} style={ss.premiumClosedWrapper}>
-      {/* Background Pulse */}
-      <AnimatedReanimated.View style={[ss.premiumClosedGlow, animatedGlowStyle]} />
-      
-      <View style={ss.premiumClosedInner}>
-        {/* Background decorative circles */}
-        <View style={ss.decorativeCircle1} />
-        <View style={ss.decorativeCircle2} />
-
-        <AnimatedReanimated.View style={[ss.premiumIconContainer, animatedIconStyle]}>
-          <View style={ss.premiumIconCircle}>
-            <Ionicons name="moon" size={32} color="#FFF" />
-          </View>
-        </AnimatedReanimated.View>
-
-        <Text style={ss.premiumClosedTitle}>Restaurant Offline</Text>
-        <Text style={ss.premiumClosedReason}>
-          {reason || 'No new orders will be assigned right now.'}
-        </Text>
-
-        <View style={ss.premiumDividerContainer}>
-          <View style={ss.premiumDivider} />
-        </View>
-
-        <View style={ss.premiumInfoBox}>
-          <Ionicons name="bicycle" size={18} color="#94A3B8" />
-          <Text style={ss.premiumInfoText}>Please complete active deliveries</Text>
-        </View>
-      </View>
-    </AnimatedReanimated.View>
-  );
-};
-
+/**
+ * Main dashboard screen component for the delivery rider.
+ * Manages order lists, live simulation, and chat UI.
+ *
+ * @returns {React.ReactElement} The rendered RiderDashboard component.
+ */
 export default function RiderDashboard() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [openChatOrderId, setOpenChatOrderId] = useState<string | null>(null);
-  const [fullScreenChatOrderId, setFullScreenChatOrderId] = useState<string | null>(null);
   const [openMapOrderId, setOpenMapOrderId] = useState<string | null>(null);
   const [chatTexts, setChatTexts] = useState<{ [orderId: string]: string }>({});
   const flatListRefs = useRef<{ [orderId: string]: FlatList | null }>({});
@@ -91,78 +47,81 @@ export default function RiderDashboard() {
   const sendChatMessage = useAppStore(state => state.sendChatMessage);
   const isRestaurantOpen = useAppStore(state => state.isRestaurantOpen);
   const restaurantCloseReason = useAppStore(state => state.restaurantCloseReason);
-  const isAutoNightMode = useAppStore(state => state.isAutoNightMode);
 
   const restaurantCoords = { lat: 17.0790, lng: 82.1374 };
 
   const sections = React.useMemo(() => {
-    // Orders ready to be picked up and dispatched
+    // New orders waiting for restaurant prep or ready to dispatch
+    const newOrderRequests = systemOrders.filter(o =>
+      o.status === 'PLACED' || o.status === 'PREPARING'
+    );
+    // Orders ready to be picked up and dispatched (out for delivery, still at restaurant)
     const availableJobs = systemOrders.filter(o =>
-      o.status === 'READY'
+      o.status === 'OUT_FOR_DELIVERY' &&
+      o.riderLat === restaurantCoords.lat &&
+      o.riderLng === restaurantCoords.lng
     );
     // Orders rider has already accepted and is actively delivering
     const myActiveJobs = systemOrders.filter(o =>
-      o.status === 'OUT_FOR_DELIVERY'
+      o.status === 'OUT_FOR_DELIVERY' &&
+      (o.riderLat !== restaurantCoords.lat || o.riderLng !== restaurantCoords.lng)
     );
     return [
       { title: 'My Active Deliveries', data: myActiveJobs, type: 'active' as const },
-      { title: 'Ready for Pickup', data: availableJobs, type: 'available' as const },
+      { title: 'Ready to Dispatch', data: availableJobs, type: 'available' as const },
+      { title: 'New Order Requests', data: newOrderRequests, type: 'new' as const },
     ];
-  }, [systemOrders, currentUser?.uid]);
+  }, [systemOrders, restaurantCoords.lat, restaurantCoords.lng]);
 
-  const simulationTimers = useRef<{ [orderId: string]: any }>({});
+  const simulationTimers = useRef<{ [orderId: string]: NodeJS.Timeout }>({});
 
   useEffect(() => {
     return () => {
       // Cleanup all timers on unmount
-      Object.values(simulationTimers.current).forEach(t => {
-        if (t && t.remove) t.remove();
-        else if (t) clearInterval(t);
-      });
+      Object.values(simulationTimers.current).forEach(clearInterval);
     };
   }, []);
 
+  /**
+   * Starts a live GPS delivery route simulation for a given order.
+   * Simulates the rider moving towards the user's location over 10 steps.
+   * 
+   * @param {ActiveOrder} order - The order to simulate navigation for.
+   */
   const startSimulation = (order: ActiveOrder) => {
     if (simulationTimers.current[order.id]) {
-      Alert.alert('GPS Active', 'You are already tracking this destination.');
+      Alert.alert('Navigation Active', 'You are already navigating to this destination.');
       return;
     }
-    Alert.alert('Live GPS Tracking', 'Start sharing your real location for this delivery?', [
+    Alert.alert('GPS Navigation', 'Start live delivery route simulation?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Start', onPress: async () => {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission Denied', 'Please enable location services to use Real GPS.');
-          return;
-        }
-        
-        try {
-          const watcher = await Location.watchPositionAsync(
-            { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 5 },
-            (loc) => {
-              updateRiderSimulatedPosition(order.id, loc.coords.latitude, loc.coords.longitude);
-            }
-          );
-          simulationTimers.current[order.id] = watcher;
-        } catch (e: any) {
-          Alert.alert('GPS Error', e.message);
-        }
+      { text: 'Start', onPress: () => {
+        let step = 0;
+        const total = 10; // Total steps for the simulation
+        const timer = setInterval(() => {
+          step++;
+          const f = step / total; // Fraction of completion
+          // Calculate intermediate simulated lat and lng
+          const lat = order.restaurantLat + f * (order.userLat - order.restaurantLat);
+          const lng = order.restaurantLng + f * (order.userLng - order.restaurantLng);
+          updateRiderSimulatedPosition(order.id, lat, lng);
+          if (step >= total) { 
+            clearInterval(timer); 
+            delete simulationTimers.current[order.id];
+            updateOrderStatus(order.id, 'DELIVERED'); 
+            Alert.alert('Delivered!', `Order ${order.id} delivered successfully.`); 
+          }
+        }, 2500);
+        simulationTimers.current[order.id] = timer;
       }}
     ]);
   };
 
-  const handleUpdateOrderStatus = (orderId: string, status: any) => {
-    if (status === 'DELIVERED') {
-      if (simulationTimers.current[orderId]) {
-        const t = simulationTimers.current[orderId];
-        if (t && t.remove) t.remove();
-        else if (t) clearInterval(t);
-        delete simulationTimers.current[orderId];
-      }
-    }
-    updateOrderStatus(orderId, status);
-  };
-
+  /**
+   * Handles sending a chat message to the customer for a specific order.
+   * 
+   * @param {string} orderId - The ID of the order.
+   */
   const handleSendMessage = (orderId: string) => {
     const text = (chatTexts[orderId] || '').trim();
     if (!text) return;
@@ -171,11 +130,23 @@ export default function RiderDashboard() {
     setTimeout(() => flatListRefs.current[orderId]?.scrollToEnd({ animated: true }), 100);
   };
 
+  /**
+   * Formats a timestamp into a localized 12-hour time string (e.g., "10:30 PM").
+   * 
+   * @param {number} ts - Timestamp in milliseconds.
+   * @returns {string} Formatted time string.
+   */
   const formatTime = (ts: number) => new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
+  /**
+   * Renders the chat interface panel for a specific order.
+   * This panel allows the rider to view messages and reply to the customer.
+   * 
+   * @param {ActiveOrder} order - The order associated with the chat.
+   * @returns {React.ReactElement} The rendered chat panel.
+   */
   const renderChatPanel = (order: ActiveOrder) => {
     const isOpen = openChatOrderId === order.id;
-    const isFullScreen = fullScreenChatOrderId === order.id;
     const msgs = chatMessages[order.id] || [];
     return (
       <View>
@@ -193,36 +164,30 @@ export default function RiderDashboard() {
 
         {isOpen && (
           <AnimatedReanimated.View style={ss.chatBox} layout={LinearTransition.duration(200)}>
-            <TouchableOpacity 
-              style={ss.chatMsgsWrap} 
-              activeOpacity={0.9} 
-              onPress={() => setFullScreenChatOrderId(order.id)}
-            >
+            <View style={ss.chatMsgsWrap}>
               {msgs.length === 0 ? (
                 <View style={ss.chatEmpty}>
                   <Ionicons name="chatbubble-ellipses-outline" size={24} color={Colors.muted} />
                   <Text style={ss.chatEmptyTxt}>No messages yet</Text>
                 </View>
               ) : (
-                <View pointerEvents="none">
-                  <FlatList
-                    ref={ref => { flatListRefs.current[order.id] = ref; }}
-                    data={msgs}
-                    keyExtractor={m => m.id}
-                    showsVerticalScrollIndicator={false}
-                    style={{ maxHeight: 250 }}
-                    contentContainerStyle={{ padding: 8 }}
-                    initialNumToRender={10}
-                    maxToRenderPerBatch={10}
-                    windowSize={5}
-                    removeClippedSubviews={Platform.OS === 'android'}
-                    renderItem={({ item }) => (
-                      <MemoizedChatBubble item={item} formatTime={formatTime} />
-                    )}
-                  />
-                </View>
+                <FlatList
+                  ref={ref => { flatListRefs.current[order.id] = ref; }}
+                  data={msgs}
+                  keyExtractor={m => m.id}
+                  showsVerticalScrollIndicator={false}
+                  style={{ maxHeight: 350 }}
+                  contentContainerStyle={{ padding: 8 }}
+                  initialNumToRender={10}
+                  maxToRenderPerBatch={10}
+                  windowSize={5}
+                  removeClippedSubviews={Platform.OS === 'android'}
+                  renderItem={({ item }) => (
+                    <MemoizedChatBubble item={item} formatTime={formatTime} />
+                  )}
+                />
               )}
-            </TouchableOpacity>
+            </View>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
               <View style={ss.chatInputRow}>
                 <TextInput
@@ -246,82 +211,21 @@ export default function RiderDashboard() {
             </KeyboardAvoidingView>
           </AnimatedReanimated.View>
         )}
-
-        <Modal 
-          visible={isFullScreen} 
-          animationType="slide" 
-          presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
-          transparent={Platform.OS !== 'ios'}
-          statusBarTranslucent={true}
-          onRequestClose={() => setFullScreenChatOrderId(null)}
-        >
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0} style={{ flex: 1, backgroundColor: Colors.dark, paddingTop: Platform.OS === 'ios' ? 0 : insets.top }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="chatbubbles" size={20} color={Colors.primary} style={{ marginRight: 8 }} />
-                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>Chat with Customer</Text>
-              </View>
-              <TouchableOpacity onPress={() => setFullScreenChatOrderId(null)} style={{ padding: 4 }}>
-                <Ionicons name="close-circle" size={24} color={Colors.muted} />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={[ss.chatMsgsWrap, { flex: 1, backgroundColor: Colors.dark }]}>
-              {msgs.length === 0 ? (
-                <View style={ss.chatEmpty}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={48} color={Colors.muted} />
-                  <Text style={[ss.chatEmptyTxt, { marginTop: 16 }]}>No messages yet</Text>
-                </View>
-              ) : (
-                <FlatList
-                  ref={ref => { flatListRefs.current[order.id] = ref; }}
-                  data={msgs}
-                  keyExtractor={m => m.id}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-                  initialNumToRender={10}
-                  maxToRenderPerBatch={10}
-                  windowSize={5}
-                  removeClippedSubviews={Platform.OS === 'android'}
-                  renderItem={({ item }) => (
-                    <MemoizedChatBubble item={item} formatTime={formatTime} />
-                  )}
-                />
-              )}
-            </View>
-            <View style={[ss.chatInputRow, { borderTopWidth: 1, borderTopColor: Colors.border, padding: 16, paddingBottom: Math.max(insets.bottom, 16), backgroundColor: Colors.surface }]}>
-                <TextInput
-                  style={[ss.chatInput, { height: 48 }]}
-                  value={chatTexts[order.id] || ''}
-                  onChangeText={t => setChatTexts(prev => ({ ...prev, [order.id]: t }))}
-                  placeholder="Reply to customer..."
-                  placeholderTextColor={Colors.muted}
-                  returnKeyType="send"
-                  onSubmitEditing={() => handleSendMessage(order.id)}
-                  maxLength={200}
-                />
-                <TouchableOpacity
-                  style={[ss.chatSendBtn, { width: 48, height: 48, borderRadius: 24 }, !(chatTexts[order.id]?.trim()) && ss.chatSendBtnOff]}
-                  onPress={() => handleSendMessage(order.id)}
-                  disabled={!(chatTexts[order.id]?.trim())}
-                >
-                  <Ionicons name="send" size={20} color={Colors.white} />
-                </TouchableOpacity>
-              </View>
-          </KeyboardAvoidingView>
-        </Modal>
       </View>
     );
   };
-
-
 
   return (
     <View style={[ss.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.dark} />
 
-      {(!isRestaurantOpen || isAutoNightMode) && (
-        <RiderPremiumOfflineBanner reason={!isRestaurantOpen ? (restaurantCloseReason || '') : 'Restaurant opens at 11:00 AM'} />
+      {!isRestaurantOpen && (
+        <View style={ss.closedBanner}>
+          <Ionicons name="warning" size={16} color={Colors.white} />
+          <Text style={ss.closedBannerText}>
+            Restaurant Closed: {restaurantCloseReason || 'No new orders will be assigned.'}
+          </Text>
+        </View>
       )}
 
       {/* Header */}
@@ -357,7 +261,6 @@ export default function RiderDashboard() {
 
       <SectionList
         style={ss.listContainer}
-        contentContainerStyle={{ paddingBottom: 160 }}
         sections={sections}
         keyExtractor={item => item.id}
         bounces={false}
@@ -366,6 +269,7 @@ export default function RiderDashboard() {
         initialNumToRender={5}
         maxToRenderPerBatch={5}
         windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         ListHeaderComponent={
           <View style={ss.statsRow}>
             <View style={ss.statCard}>
@@ -373,11 +277,11 @@ export default function RiderDashboard() {
               <Text style={ss.statLabel}>Active Deliveries</Text>
             </View>
             <View style={ss.statCard}>
-              <Text style={[ss.statValue, { color: Colors.primary }]}>{sections[1].data.length}</Text>
+              <Text style={[ss.statValue, { color: Colors.primary }]}>{sections[1].data.length + sections[2].data.length}</Text>
               <Text style={ss.statLabel}>Pending Jobs</Text>
             </View>
             <View style={ss.statCard}>
-              <Text style={[ss.statValue, { color: Colors.green, fontSize: 16 }]} numberOfLines={1} adjustsFontSizeToFit>Online</Text>
+              <Text style={[ss.statValue, { color: Colors.green }]}>Online</Text>
               <Text style={ss.statLabel}>Status</Text>
             </View>
           </View>
@@ -392,7 +296,7 @@ export default function RiderDashboard() {
             openMapOrderId={openMapOrderId}
             setOpenMapOrderId={setOpenMapOrderId}
             startSimulation={startSimulation}
-            updateOrderStatus={handleUpdateOrderStatus}
+            updateOrderStatus={updateOrderStatus}
             renderChatPanel={renderChatPanel}
             acceptDeliveryTask={acceptDeliveryTask}
           />
@@ -403,130 +307,17 @@ export default function RiderDashboard() {
             <Text style={ss.emptyText}>All caught up!</Text>
           </View>
         }
-        ListFooterComponent={<View style={{ height: 120 }} />}
+        ListFooterComponent={<View style={{ height: 50 }} />}
       />
     </View>
   );
 }
 
 const ss = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    width: '100%',
-    maxWidth: 600,
-    alignSelf: 'center',
-  },
+  container: { flex: 1, backgroundColor: Colors.surface },
   listContainer: { flex: 1 },
-  premiumClosedWrapper: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    borderRadius: 24,
-    position: 'relative',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  premiumClosedGlow: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 24,
-    backgroundColor: 'rgba(239,68,68,0.25)',
-    transform: [{ scale: 1.02 }],
-    zIndex: -1,
-  },
-  premiumClosedInner: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    backgroundColor: '#1A1010',
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.2)',
-    paddingVertical: 28,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  decorativeCircle1: {
-    position: 'absolute',
-    top: -40,
-    right: -20,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(239,68,68,0.06)',
-  },
-  decorativeCircle2: {
-    position: 'absolute',
-    bottom: -30,
-    left: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(239,68,68,0.04)',
-  },
-  premiumIconContainer: {
-    marginBottom: 16,
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  premiumIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#EF4444',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  premiumClosedTitle: {
-    color: '#FFF',
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  premiumClosedReason: {
-    color: '#FCA5A5',
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 10,
-  },
-  premiumDividerContainer: {
-    width: '100%',
-    height: 1,
-    marginVertical: 18,
-    alignItems: 'center',
-  },
-  premiumDivider: {
-    width: '80%',
-    height: 1,
-    backgroundColor: 'rgba(239,68,68,0.3)',
-  },
-  premiumInfoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.15)',
-  },
-  premiumInfoText: {
-    color: '#FECACA',
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
+  closedBanner: { backgroundColor: Colors.red, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 16, gap: 8 },
+  closedBannerText: { color: Colors.white, fontSize: normalize(11), fontWeight: '800' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#0D0A06', borderBottomWidth: 1, borderBottomColor: 'rgba(255,107,0,0.18)' },
   headerBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,107,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,0,0.3)', alignItems: 'center', justifyContent: 'center' },

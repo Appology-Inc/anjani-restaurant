@@ -1,3 +1,7 @@
+/**
+ * @file index.tsx
+ * @description Boot screen and entry point for the Anjani Delivery Partner app. Handles cinematic animations and session initialization.
+ */
 import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, Animated, Text, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -10,6 +14,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const scale = Math.min(SCREEN_WIDTH / 375, 1.2);
 const normalize = (size: number) => Math.round(size * scale);
 
+/**
+ * Boot Screen Component
+ * Displays a cinematic entry sequence and initializes user session.
+ * Routes to the main tab interface if a session exists, otherwise to auth.
+ * 
+ * @returns {JSX.Element} The rendered boot screen component
+ */
 export default function AppBootScreen() {
   const router = useRouter();
   const { loadSavedSession, currentUser } = useAppStore();
@@ -76,6 +87,7 @@ export default function AppBootScreen() {
           }
         ]}
         resizeMode="cover"
+        blurRadius={4}
       />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }]}>
         <Animated.View style={{ opacity, alignItems: 'center', width: '100%' }}>

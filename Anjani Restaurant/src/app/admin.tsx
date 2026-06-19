@@ -1,3 +1,9 @@
+/**
+ * @file admin.tsx
+ * @description Admin dashboard allowing restaurant owners to manage the menu 
+ * (price, availability) and track active orders.
+ */
+
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Switch, TextInput, Modal, Alert, Platform, Linking } from 'react-native';
 import { useAppStore } from '../state/AppStore';
@@ -6,6 +12,17 @@ import { db, isFirebaseConfigured } from '../config/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+/**
+ * AdminDashboard Component
+ * 
+ * Secure interface to manage restaurant operations.
+ * Includes capabilities to:
+ * - View and manage active orders (including navigation to customers).
+ * - Edit menu items (price, description, availability).
+ * - Initialize or sync the menu with Firebase.
+ * 
+ * @returns {React.JSX.Element} The administrative dashboard interface.
+ */
 export default function AdminDashboard() {
   const { menuItems, toggleDishAvailability, updateMenuItem, deleteMenuItem, systemOrders, updateOrderStatus } = useAppStore();
   const [seeding, setSeeding] = useState(false);
@@ -106,7 +123,7 @@ export default function AdminDashboard() {
       <View style={styles.orderDetailRow}>
         <Text style={styles.orderLabel}>Items:</Text>
         <Text style={styles.orderValue}>
-          {item.items.map((i: any) => `${i.quantity}x ${i.item.name}`).join(', ')}
+          {(item.items || []).map((i: any) => `${i.quantity}x ${i?.item?.name || 'Item'}`).join(', ')}
         </Text>
       </View>
       
@@ -163,17 +180,27 @@ export default function AdminDashboard() {
       {activeTab === 'Menu' ? (
         <FlatList
           data={menuItems}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => item?.id || index.toString()}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 16 }}
+          initialNumToRender={100}
+          maxToRenderPerBatch={100}
+          windowSize={101}
+          removeClippedSubviews={false}
+          updateCellsBatchingPeriod={10}
         />
       ) : (
         <FlatList
           data={systemOrders.filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED')}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => item?.id || index.toString()}
           renderItem={renderOrder}
           contentContainerStyle={{ padding: 16 }}
           ListEmptyComponent={<Text style={{textAlign: 'center', marginTop: 50, color: '#666'}}>No active orders right now.</Text>}
+          initialNumToRender={100}
+          maxToRenderPerBatch={100}
+          windowSize={101}
+          removeClippedSubviews={false}
+          updateCellsBatchingPeriod={10}
         />
       )}
 

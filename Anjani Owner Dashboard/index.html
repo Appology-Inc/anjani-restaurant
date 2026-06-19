@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#05050A" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Anjani Restaurant Owner Dashboard</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/icon-192-v2.png" />
+    <link rel="manifest" href="/manifest.json?v=6" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      /* PWA Installation Prompt Styles */
+      .pwa-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 100000;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        padding: 0;
+        opacity: 0;
+        transition: opacity 0.35s ease;
+      }
+      .pwa-overlay.visible {
+        opacity: 1;
+      }
+      .pwa-blur-bg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      .pwa-card {
+        position: relative;
+        width: 100%;
+        max-width: 420px;
+        background: rgba(18, 20, 26, 0.95);
+        border-top-left-radius: 24px;
+        border-top-right-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom: none;
+        padding: 24px;
+        box-shadow: 0 -10px 25px rgba(0,0,0,0.5);
+        transform: translateY(100%);
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 100001;
+      }
+      .pwa-overlay.visible .pwa-card {
+        transform: translateY(0);
+      }
+      .pwa-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .pwa-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: #fff;
+        box-shadow: 0 4px 10px rgba(255, 90, 0, 0.3);
+      }
+      .pwa-title-block {
+        flex: 1;
+        margin-left: 14px;
+      }
+      .pwa-title-block h3 {
+        color: #fff;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        margin: 0;
+      }
+      .pwa-title-block p {
+        color: var(--text-secondary);
+        font-size: 11px;
+        margin: 4px 0 0 0;
+      }
+      .pwa-close-icon-btn {
+        background: rgba(255,255,255,0.05);
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 16px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .pwa-close-icon-btn:hover {
+        background: rgba(255,255,255,0.1);
+      }
+      .pwa-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .pwa-benefits {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 12.5px;
+        line-height: 22px;
+      }
+      .pwa-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 10px;
+      }
+      .pwa-btn-secondary {
+        flex: 1;
+        height: 44px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.08);
+        color: var(--text-secondary);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .pwa-btn-secondary:hover {
+        background: rgba(255,255,255,0.1);
+      }
+      .pwa-btn-primary {
+        flex: 2;
+        height: 44px;
+        border-radius: 12px;
+        background: var(--primary);
+        border: none;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(255, 90, 0, 0.35);
+        transition: opacity 0.2s;
+      }
+      .pwa-btn-primary:hover {
+        opacity: 0.9;
+      }
+      .pwa-ios-instructions-title {
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+      }
+      .pwa-ios-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .pwa-step-num {
+        width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        background: rgba(255,90,0,0.15);
+        border: 1px solid rgba(255,90,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+        font-size: 11px;
+        font-weight: 800;
+        margin-top: 2px;
+      }
+      .pwa-step-text {
+        flex: 1;
+        color: var(--text-secondary);
+        font-size: 12.5px;
+        line-height: 18px;
+      }
+      @media (min-width: 480px) {
+        .pwa-overlay {
+          align-items: center;
+          padding: 24px;
+        }
+        .pwa-card {
+          border-radius: 24px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          transform: translateY(50px);
+          opacity: 0;
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+        }
+        .pwa-overlay.visible .pwa-card {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Premium Owner App Custom Boot Screen -->
+    <div id="web-splash-screen" class="web-splash-overlay">
+      <div class="splash-bg"></div>
+      <div class="splash-mask"></div>
+      
+      <div class="splash-brand-box">
+        <h1 class="splash-title" style="font-size: clamp(1.6rem, 5vw, 2.6rem); letter-spacing: clamp(2px, 1.5vw, 6px); white-space: nowrap; text-align: center;">
+          ANJANI <span style="font-weight: 300;">RESTAURANT</span>
+        </h1>
+        
+        <!-- Center Panning Delivery Track Loader -->
+        <div class="web-track-container">
+          <div class="web-track-road"></div>
+          <div class="web-traveling-icon">
+            <i id="loading-track-icon" class="ri-restaurant-line"></i>
+          </div>
+        </div>
+        
+        <p class="splash-tagline">Kitchen & Dispatch Operations Suite</p>
+      </div>
+      
+      <!-- Appology Footer Badge -->
+      <div class="appology-splash-badge" style="z-index: 10;">
+        Powered by <a href="https://appology-inc.github.io/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;"><span class="appology-glow-wrapper italic" style="white-space: nowrap;"><span class="appology-gold-text" style="font-weight: 900; padding-right: 3px;">App</span><span class="appology-gold-text" style="font-weight: 400; margin-left: -3px;">ology Inc.</span></span></a>
+      </div>
+    </div>
+
+    <div id="app">
+      
+      <header class="navbar">
+        <div class="brand" id="brand-header-title" style="cursor: pointer;" title="Install App">
+          <i class="ri-fire-fill brand-icon"></i>
+          <div class="brand-info">
+            <div class="brand-title-row">
+              <h1 class="brand-title">
+                <span class="brand-name">
+                  <span class="brand-word-first">Anjani</span>
+                  <span class="brand-word-second">Restaurant</span>
+                </span>
+                <span class="badge">Web Dashboard</span>
+              </h1>
+            </div>
+            <p class="brand-subtitle">Kitchen & Dispatch Operations Suite</p>
+          </div>
+          <div class="brand-status-meta">
+            <div class="live-clock" id="live-clock">--:--:--</div>
+            <div class="connection-status connected" id="connection-status">
+              <span class="dot"></span>
+              <span class="text">Firebase Live</span>
+            </div>
+          </div>
+        </div>
+        <div class="nav-right">
+          <!-- Restaurant Status Toggle Switch -->
+          <div class="status-toggle-wrapper" id="status-toggle-container" style="display: none;">
+            <div class="toggle-control-group">
+              <div class="creative-toggle" id="restaurant-status-toggle">
+                <div class="creative-toggle-text-container">
+                  <span class="creative-toggle-text live-text">LIVE</span>
+                  <span class="creative-toggle-text off-text">OFF</span>
+                </div>
+                <div class="creative-toggle-thumb">
+                  <i class="ri-lock-line" id="restaurant-status-icon"></i>
+                </div>
+              </div>
+            </div>
+            <div class="toggle-status-text-container">
+              <span class="toggle-status-text" id="toggle-status-text">--</span>
+            </div>
+          </div>
+
+          <!-- Logout Button -->
+          <button id="logout-btn" class="header-logout-btn" title="Logout" style="display: none;">
+            <i class="ri-logout-box-line"></i>
+            <span>Logout</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="analytics-strip">
+        <div class="metric-card">
+          <div class="metric-icon bg-orange" style="font-style: normal; font-size: 24px;">💸</div>
+          <div class="metric-info">
+            <p class="metric-label">Total Revenue</p>
+            <h3 class="metric-value" id="metric-revenue">₹0</h3>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon bg-blue"><i class="ri-restaurant-line"></i></div>
+          <div class="metric-info">
+            <p class="metric-label">Active Orders</p>
+            <h3 class="metric-value" id="metric-active-orders">0</h3>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon bg-green"><i class="ri-e-bike-2-line"></i></div>
+          <div class="metric-info">
+            <p class="metric-label">Live Deliveries</p>
+            <h3 class="metric-value" id="metric-live-deliveries">0</h3>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon bg-purple"><i class="ri-menu-line"></i></div>
+          <div class="metric-info">
+            <p class="metric-label">Menu Items</p>
+            <h3 class="metric-value" id="metric-menu-items">0</h3>
+          </div>
+        </div>
+      </section>
+
+      <div class="tab-container">
+        <button class="tab-btn active" data-tab="operations">
+          <i class="ri-dashboard-3-line"></i> Operations Board
+        </button>
+        <button class="tab-btn" data-tab="menu">
+          <i class="ri-book-open-line"></i> Menu Catalog
+        </button>
+        <button class="tab-btn" data-tab="historical">
+          <i class="ri-history-line"></i> Historical Data
+        </button>
+        <button class="tab-btn" data-tab="analytics">
+          <i class="ri-bar-chart-box-line"></i> Analytics
+        </button>
+      </div>
+
+      <main class="content-area">
+        <div id="tab-operations" class="tab-content active">
+          <div class="kanban-board">
+            
+            <div class="kanban-column">
+              <div class="kanban-header">
+                <h2>Incoming Requests</h2>
+                <span class="kanban-count" id="count-incoming">0</span>
+              </div>
+              <div class="kanban-list" id="list-incoming"></div>
+            </div>
+
+
+
+            <div class="kanban-column">
+              <div class="kanban-header">
+                <h2>Preparation Queue</h2>
+                <span class="kanban-count" id="count-preparing">0</span>
+              </div>
+              <div class="kanban-list" id="list-preparing"></div>
+            </div>
+
+            <div class="kanban-column">
+              <div class="kanban-header">
+                <h2>Ready for Pickup</h2>
+                <span class="kanban-count" id="count-ready">0</span>
+              </div>
+              <div class="kanban-list" id="list-ready"></div>
+            </div>
+
+            <div class="kanban-column">
+              <div class="kanban-header">
+                <h2>Out for Delivery</h2>
+                <span class="kanban-count" id="count-delivering">0</span>
+              </div>
+              <div class="kanban-list" id="list-delivering"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="tab-menu" class="tab-content">
+          <div class="menu-controls">
+            <div class="search-box">
+              <i class="ri-search-line"></i>
+              <input type="text" id="menu-search" placeholder="Search dish by name..." />
+            </div>
+          </div>
+          <div class="category-filters" id="category-filters">
+            <!-- Category buttons injected here -->
+          </div>
+          <div class="menu-grid" id="menu-grid"></div>
+        </div>
+
+        <div id="tab-historical" class="tab-content">
+          <div class="historical-controls">
+            <div class="date-picker-group">
+              <label><i class="ri-calendar-event-line"></i> Start Date</label>
+              <input type="date" id="hist-start-date" />
+            </div>
+            <div class="date-picker-group">
+              <label><i class="ri-calendar-event-line"></i> End Date</label>
+              <input type="date" id="hist-end-date" />
+            </div>
+            <button id="fetch-historical-btn" class="btn-primary" style="align-self: flex-end; height: 38px;">
+              <i class="ri-search-eye-line"></i> Retrieve Data
+            </button>
+          </div>
+          
+          <div class="historical-summary" style="display: none;" id="hist-summary">
+            <div class="hist-card">
+              <h4>Total Orders</h4>
+              <p id="hist-total-orders">0</p>
+            </div>
+            <div class="hist-card">
+              <h4>Delivered Orders</h4>
+              <p id="hist-delivered-orders">0</p>
+            </div>
+            <div class="hist-card">
+              <h4>Cancelled Orders</h4>
+              <p id="hist-cancelled-orders">0</p>
+            </div>
+            <div class="hist-card">
+              <h4>Total Revenue</h4>
+              <p id="hist-total-revenue">₹0</p>
+            </div>
+          </div>
+
+          <div class="historical-table-container">
+            <table class="historical-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Date & Time</th>
+                  <th>Customer Info</th>
+                  <th>Items</th>
+                  <th>Amount</th>
+                  <th>Payment</th>
+                </tr>
+              </thead>
+              <tbody id="historical-tbody">
+                <tr><td colspan="6" class="text-center" style="color: var(--text-secondary); padding: 2rem;">Select dates and retrieve data to view history.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="tab-analytics" class="tab-content">
+          <div class="analytics-dashboard">
+            <!-- Top Row: Wide Charts -->
+            <div class="analytics-row top-row">
+              <div class="chart-card wide-chart">
+                <div class="chart-header">
+                  <h3>Revenue Trend</h3>
+                  <span class="chart-badge">Last 7 Days</span>
+                </div>
+                <div class="chart-body">
+                  <canvas id="revenueChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-card wide-chart">
+                <div class="chart-header">
+                  <h3>Top Selling Items</h3>
+                  <span class="chart-badge">All Time</span>
+                </div>
+                <div class="chart-body">
+                  <canvas id="topItemsChart"></canvas>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Bottom Row: Donut/Pie/Radar Charts -->
+            <div class="analytics-row bottom-row">
+              <div class="chart-card box-chart">
+                <div class="chart-header">
+                  <h3>Payment Methods</h3>
+                </div>
+                <div class="chart-body flex-center">
+                  <canvas id="paymentChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-card box-chart">
+                <div class="chart-header">
+                  <h3>Peak Order Hours</h3>
+                </div>
+                <div class="chart-body flex-center">
+                  <canvas id="peakHoursChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-card box-chart">
+                <div class="chart-header">
+                  <h3>Live Order Status</h3>
+                </div>
+                <div class="chart-body flex-center">
+                  <canvas id="statusChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="appology-footer">
+          <span class="appology-footer-text">Powered by <a href="https://appology-inc.github.io/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;"><span class="appology-glow-wrapper italic" style="white-space: nowrap;"><span class="appology-gold-text" style="font-weight: 900; padding-right: 3px;">App</span><span class="appology-gold-text" style="font-weight: 400; margin-left: -3px;">ology Inc.</span></span></a></span>
+        </div>
+      </main>
+
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Edit Dish Details</h2>
+          <button id="close-modal" class="icon-btn"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="edit-id" />
+          
+          <div class="form-group">
+            <label>Dish Name</label>
+            <input type="text" id="edit-name" />
+          </div>
+          
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="edit-description" rows="3"></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label>Price (₹)</label>
+            <input type="number" id="edit-price" />
+          </div>
+          
+          <div class="form-group toggle-group">
+            <div>
+              <label>Available Today</label>
+              <span class="help-text">Controls whether customers can order this dish</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="edit-available" />
+              <span class="slider round"></span>
+            </label>
+          </div>
+          
+          <button id="delete-dish-btn" class="btn-delete">
+            <i class="ri-delete-bin-line"></i> Delete Dish Completely
+          </button>
+        </div>
+        
+        <div class="modal-footer">
+          <button id="cancel-edit-btn" class="btn-secondary">Cancel</button>
+          <button id="save-edit-btn" class="btn-primary">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+      <div class="modal-card modal-sm">
+        <div class="modal-header">
+          <h2>Confirm Deletion</h2>
+        </div>
+        <div class="modal-body">
+          <p id="confirm-text">Are you sure you want to permanently delete this dish?</p>
+          <p class="warning-text" style="color:var(--danger); font-size:0.85rem; margin-top:8px;">This action cannot be undone and will remove the dish from all apps.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-confirm-btn" class="btn-secondary">Cancel</button>
+          <button id="confirm-delete-btn" class="btn-danger">Delete Forever</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-overlay" class="modal-overlay">
+      <!-- Premium Login Panning Background -->
+      <div class="login-bg-slider">
+        <div class="login-bg-slide slide-1"></div>
+        <div class="login-bg-slide slide-2"></div>
+      </div>
+      <div class="login-overlay-mask"></div>
+
+      <!-- Centered Auth Group containing both brand box and login console card -->
+      <div class="web-auth-group">
+        
+        <!-- Morphing Brand Box -->
+        <div class="web-brand-box" style="cursor: pointer;" onclick="if(window.triggerInstallPrompt) window.triggerInstallPrompt()">
+          <!-- Cinematic (Single-line) Title -->
+          <div class="brand-cinematic" style="width: 100%; display: flex; justify-content: center;">
+            <h1 class="brand-title-main" style="font-size: clamp(1.6rem, 5vw, 2.6rem); letter-spacing: clamp(2px, 1.5vw, 6px); white-space: nowrap; text-align: center;">
+              ANJANI <span style="font-weight: 300;">RESTAURANT</span>
+            </h1>
+          </div>
+
+          <!-- Compact (Single-line) Title -->
+          <div class="brand-compact">
+            <h1 class="brand-title-compact">ANJANI <span style="font-weight: 300;">RESTAURANT</span></h1>
+          </div>
+
+          <!-- Divider & Tagline (Fades out on focus) -->
+          <div class="brand-tagline-wrap">
+            <div class="web-track-container" style="margin-top: 12px; margin-bottom: 8px;">
+              <div class="web-track-road"></div>
+              <div class="web-traveling-icon">
+                <i id="login-track-icon" class="ri-restaurant-line"></i>
+              </div>
+            </div>
+            <p class="brand-tagline-text">Kitchen & Dispatch Operations Suite</p>
+          </div>
+        </div>
+
+        <!-- Secure Owner Console Card -->
+        <div class="modal-card modal-sm web-console-card">
+          <!-- Console Header -->
+          <div class="web-console-header">
+            <i class="ri-shield-check-line console-icon"></i>
+            <h3 class="console-title">OWNER CONSOLE</h3>
+            <p class="console-subtitle">Administrative & Operations Authority Only</p>
+          </div>
+
+          <div class="modal-body" style="padding-top: 0;">
+            <div class="form-group web-input-group">
+              <label><i class="ri-mail-line" style="margin-right: 4px;"></i> Owner Email Address</label>
+              <input type="email" id="login-email" placeholder="owner@anjani.com" autocomplete="off" />
+            </div>
+            <div class="form-group web-input-group">
+              <label><i class="ri-lock-2-line" style="margin-right: 4px;"></i> Security Password</label>
+              <div style="position: relative; display: flex; align-items: center;">
+                <input type="password" id="login-password" placeholder="••••••••" style="width: 100%; padding-right: 40px;" />
+                <i class="ri-eye-line" id="toggle-password" style="position: absolute; right: 12px; cursor: pointer; color: #888; font-size: 1.1rem;"></i>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #9A8A72; font-size: 0.85rem;">
+                <input type="checkbox" id="remember-me" checked style="accent-color: #FF6B00;" />
+                Remember me & Auto-login
+              </label>
+            </div>
+            <p id="login-error" style="display: none; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 1.2rem; color: #f87171; font-size: 0.85rem; font-weight: 500; text-align: center; line-height: 1.4;"></p>
+            <button id="login-btn" class="btn-primary web-console-btn">
+              <i class="ri-key-2-line" style="margin-right: 6px;"></i> Secure Sign In
+            </button>
+
+            <div style="text-align: center; margin-top: 16px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+              By continuing, you agree to our<br/>
+              <a href="https://anjanirestaurant.web.app/terms.html" target="_blank" style="color: var(--primary); text-decoration: none;">Terms of Service</a>
+              and
+              <a href="https://anjanirestaurant.web.app/privacy.html" target="_blank" style="color: var(--primary); text-decoration: none;">Privacy Policy</a>.
+            </div>
+            
+            <div style="text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; color: #888;">
+              Powered by <a href="https://appology-inc.github.io/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;"><span class="appology-glow-wrapper italic" style="white-space: nowrap;"><span class="appology-gold-text" style="font-weight: 900; padding-right: 3px;">App</span><span class="appology-gold-text" style="font-weight: 400; margin-left: -3px;">ology Inc.</span></span></a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Restaurant Status Reason Modal -->
+    <div id="status-reason-modal" class="modal-overlay hidden">
+      <div class="modal-card modal-sm status-reason-modal-card">
+        <div class="modal-header">
+          <h2>Turn Off Orders?</h2>
+          <button id="close-status-reason-modal" class="icon-btn"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="modal-body" style="padding-top: 1.25rem;">
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">Select a reason for temporarily turning off the restaurant.</p>
+          
+          <div class="reason-option selected" data-reason="Chef/Workers not available">
+            <i class="ri-radio-button-fill reason-radio-icon"></i>
+            <span class="reason-text">Chef/Workers not available</span>
+          </div>
+          <div class="reason-option" data-reason="Ingredients out of stock">
+            <i class="ri-radio-button-line reason-radio-icon"></i>
+            <span class="reason-text">Ingredients out of stock</span>
+          </div>
+          <div class="reason-option" data-reason="Too many pending orders">
+            <i class="ri-radio-button-line reason-radio-icon"></i>
+            <span class="reason-text">Too many pending orders</span>
+          </div>
+          <div class="reason-option" data-reason="Closing early today">
+            <i class="ri-radio-button-line reason-radio-icon"></i>
+            <span class="reason-text">Closing early today</span>
+          </div>
+          <div class="reason-option" data-reason="Kitchen Maintenance/Cleaning">
+            <i class="ri-radio-button-line reason-radio-icon"></i>
+            <span class="reason-text">Kitchen Maintenance/Cleaning</span>
+          </div>
+
+          <button id="confirm-status-close-btn" class="btn-primary" style="margin-top: 1.5rem; width: 100%; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(244, 67, 54, 0.15); border: 1px solid #F44336; color: #F44336; box-shadow: none; font-weight: 700;">
+            Confirm & Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PWA Install Prompt Modal -->
+    <div id="pwa-install-overlay" class="pwa-overlay" style="display: none;">
+      <div class="pwa-blur-bg"></div>
+      <div class="pwa-card">
+        <div class="pwa-header">
+          <div class="pwa-icon">
+            <i class="ri-store-3-line"></i>
+          </div>
+          <div class="pwa-title-block">
+            <h3>Install Anjani Owner</h3>
+            <p>Get a premium standalone experience</p>
+          </div>
+          <button id="pwa-close-btn" class="pwa-close-icon-btn"><i class="ri-close-line"></i></button>
+        </div>
+        
+        <!-- PWA Android Body -->
+        <div id="pwa-android-body" class="pwa-body" style="display: none;">
+          <ul class="pwa-benefits">
+            <li>✨ 60fps high-performance interface</li>
+            <li>📲 Access directly from your Home Screen</li>
+            <li>🔔 Real-time status update sounds</li>
+          </ul>
+          <div class="pwa-actions">
+            <button id="pwa-cancel-btn" class="pwa-btn-secondary">Not Now</button>
+            <button id="pwa-install-btn" class="pwa-btn-primary">Install</button>
+          </div>
+        </div>
+
+        <!-- PWA iOS Body -->
+        <div id="pwa-ios-body" class="pwa-body" style="display: none;">
+          <p class="pwa-ios-instructions-title">To install on your iPhone:</p>
+          <div class="pwa-ios-step">
+            <div class="pwa-step-num">1</div>
+            <div class="pwa-step-text">Tap the Safari Share button <i class="ri-share-forward-box-line" style="color: var(--primary);"></i> in the toolbar.</div>
+          </div>
+          <div class="pwa-ios-step">
+            <div class="pwa-step-num">2</div>
+            <div class="pwa-step-text">Scroll down and select <strong>"Add to Home Screen"</strong> <i class="ri-add-box-line" style="color: var(--primary);"></i>.</div>
+          </div>
+          <button id="pwa-gotit-btn" class="pwa-btn-primary" style="margin-top: 15px; width: 100%;">Got It</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

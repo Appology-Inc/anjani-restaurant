@@ -1,0 +1,19 @@
+{
+  "dependencies": {
+    "expo-device": "^56.0.4",
+    "expo-notifications": "^56.0.14",
+    "firebase": "^12.13.0",
+    "puppeteer": "^25.0.4"
+  },
+  "name": "scratch",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

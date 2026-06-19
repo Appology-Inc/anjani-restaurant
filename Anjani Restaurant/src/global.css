@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 :root {
   --font-display:
     Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
@@ -6,4 +8,269 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+@font-face {
+  font-family: 'ionicons';
+  src: url('/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.b4eb097d35f44ed943676fd56f6bdc51.ttf') format('truetype'),
+       url('https://unpkg.com/react-native-vector-icons@10.0.3/Fonts/Ionicons.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Ionicons';
+  src: url('/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.b4eb097d35f44ed943676fd56f6bdc51.ttf') format('truetype'),
+       url('https://unpkg.com/react-native-vector-icons@10.0.3/Fonts/Ionicons.ttf') format('truetype');
+  font-display: swap;
+}
+
+/* Premium Neon Glassmorphism Theme (Web Only) */
+@media screen {
+  :root {
+    --bg-main: #08080C;
+    --bg-card: rgba(22, 24, 30, 0.75);
+    --bg-card-hover: rgba(32, 35, 45, 0.85);
+    --border-light: rgba(255, 255, 255, 0.12);
+    --border-glow: rgba(255, 90, 0, 0.3);
+    --primary: #FF5A00;
+    --primary-light: #FF8F3D;
+    --accent: #FFB703;
+    --success: #10B981;
+    --danger: #EF4444;
+    --glass-bg: rgba(12, 14, 20, 0.85);
+    
+    --shadow-sm: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 24px rgba(255, 90, 0, 0.15);
+
+    /* Responsive max-width for the app shell */
+    --app-max-width: 520px;
+  }
+
+  /* ─── Responsive App Shell ─────────────────────────────────── */
+  body, html {
+    margin: 0;
+    padding: 0;
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+    background-color: #08080C;
+    /* Prevent iOS elastic overscroll */
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  
+  #root, [data-reactroot] {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Edge-to-edge PWA: extend background behind system bars */
+
+
+  body, #root, [data-reactroot] {
+    background-color: var(--bg-main) !important;
+    background-image: 
+      radial-gradient(circle at 0% 0%, rgba(255, 90, 0, 0.03) 0%, transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.02) 0%, transparent 40%) !important;
+    background-attachment: fixed;
+  }
+
+
+
+  /* ─── Smooth scrollbar ──────────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 90, 0, 0.2);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 90, 0, 0.4);
+  }
+
+  /* ─── Animations ────────────────────────────────────────────── */
+  .animated-gradient-text {
+    background: linear-gradient(90deg, #FF0000, #FF4500, #FF8C00, #FFD700, #FFFFFF, #FFD700, #FF8C00, #FF4500, #FF0000);
+    background-size: 200% auto;
+    color: transparent !important;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shine 6s linear infinite;
+  }
+
+  .brand-name {
+    font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.5px !important;
+    background-image: linear-gradient(
+      120deg,
+      #FF6B00 0%,
+      #FFD180 25%,
+      #FFF 50%,
+      #FFD180 75%,
+      #FF6B00 100%
+    ) !important;
+    background-size: 200% auto !important;
+    background-repeat: repeat !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    animation: shinyBrandText 4s linear infinite !important;
+    display: inline-block !important;
+    font-style: italic !important;
+    font-size: 23px !important;
+    padding-right: 6px !important;
+  }
+
+  @media (min-width: 600px) {
+    .brand-name {
+      font-size: 28px !important;
+    }
+  }
+
+
+  /* ─── Glassmorphism cards ────────────────────────────────────── */
+  .glass-card, 
+  div[style*="background-color: rgba(22, 24, 30, 0.75)"] {
+    backdrop-filter: blur(10px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(150%) !important;
+    border: 1px solid var(--border-light) !important;
+    box-shadow: var(--shadow-sm) !important;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    will-change: transform, opacity;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+  }
+
+  .glass-card:hover,
+  div[style*="background-color: rgba(22, 24, 30, 0.75)"]:hover {
+    transform: translateY(-2px) translate3d(0, 0, 0);
+    background: var(--bg-card-hover) !important;
+    border-color: var(--border-glow) !important;
+    box-shadow: var(--shadow-md), var(--shadow-glow);
+  }
+
+  /* ─── Smooth transitions for all interactive elements ──────── */
+  button, a, [role="button"] {
+    transition: transform 0.15s ease, opacity 0.15s ease !important;
+  }
+  button:active, a:active, [role="button"]:active {
+    transform: scale(0.97) !important;
+  }
+
+
+
+  /* ─── Better font rendering and input reset ─────────────────────────────────── */
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  input, textarea {
+    outline: none !important;
+    border: none !important;
+  }
+}
+
+@keyframes shinyBrandText {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+.animate-brand-app {
+    background: linear-gradient(90deg, #2563eb, #3b82f6, #06b6d4, #2563eb) !important;
+    background-size: 200% auto !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    animation: fluidFlow 4s ease-in-out infinite !important;
+}
+.animate-brand-ology {
+    background: linear-gradient(90deg, #a855f7, #d946ef, #c084fc, #a855f7) !important;
+    background-size: 200% auto !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    animation: fluidFlow 4s ease-in-out infinite !important;
+}
+.animate-brand-app {
+    background: linear-gradient(90deg, #2563eb, #3b82f6, #06b6d4, #2563eb) !important;
+    background-size: 200% auto !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    animation: fluidFlow 4s ease-in-out infinite !important;
+    display: inline-block !important;
+  font-style: italic !important;
+}
+.animate-brand-ology {
+    background: linear-gradient(90deg, #a855f7, #d946ef, #c084fc, #a855f7) !important;
+    background-size: 200% auto !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    animation: fluidFlow 4s ease-in-out infinite !important;
+    display: inline-block !important;
+  font-style: italic !important;
+}
+
+
+
+
+
+
+/* Appology Gold Fire Branding */
+@keyframes appologyGlowPulse {
+  0% { filter: drop-shadow(0 0 4px rgba(255, 107, 0, 0.5)); }
+  50% { filter: drop-shadow(0 0 12px rgba(255, 107, 0, 0.9)); }
+  100% { filter: drop-shadow(0 0 4px rgba(255, 107, 0, 0.5)); }
+}
+
+.appology-gold-text {
+  font-family: 'Outfit', sans-serif !important;
+  background-image: linear-gradient(
+    120deg,
+    #FF6B00 0%,
+    #FFD180 25%,
+    #FFFFFF 50%,
+    #FFD180 75%,
+    #FF6B00 100%
+  ) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  animation: shinyBrandText 3s linear infinite !important;
+  display: inline-block !important;
+  font-style: italic !important;
+}
+
+.appology-glow-wrapper {
+  display: inline-flex !important;
+  flex-direction: row;
+  animation: appologyGlowPulse 2s ease-in-out infinite !important;
 }
