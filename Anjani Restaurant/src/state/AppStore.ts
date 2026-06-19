@@ -250,24 +250,34 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 2
   }
 }
 
-async function callCloudAPI(path: string, options: RequestInit = {}): Promise<any> {
-  // Attempt 1: Localhost (iOS / Web / Host)
-  try {
-    const res = await fetchWithTimeout(`${LOCALHOST_URL}${path}`, options);
-    if (res.ok) return await res.json();
-  } catch (e) {
-    // Ignore and try fallback
+async function callCloudAPI(path: string, options: RequestInit = {}, retries = 2): Promise<any> {
+  let lastError = null;
+
+  for (let i = 0; i < retries; i++) {
+    // Attempt 1: Localhost (iOS / Web / Host)
+    try {
+      const res = await fetchWithTimeout(`${LOCALHOST_URL}${path}`, options, 3000);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      lastError = e;
+    }
+
+    // Attempt 2: 10.0.2.2 (Android Emulator)
+    try {
+      const res = await fetchWithTimeout(`${ANDROID_EMULATOR_URL}${path}`, options, 3000);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      lastError = e;
+    }
+    
+    // Short backoff before retry
+    if (i < retries - 1) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
 
-  // Attempt 2: 10.0.2.2 (Android Emulator)
-  try {
-    const res = await fetchWithTimeout(`${ANDROID_EMULATOR_URL}${path}`, options);
-    if (res.ok) return await res.json();
-  } catch (e) {
-    // Ignore and throw
-  }
-
-  throw new Error('Cloud DB server unreachable');
+  console.warn(`callCloudAPI failed after ${retries} retries. Path: ${path}`, lastError);
+  throw new Error('Cloud DB server unreachable or timed out.');
 }
 
 // Peddapuram, Andhra Pradesh Mock Coordinates (Anjani Restaurant)

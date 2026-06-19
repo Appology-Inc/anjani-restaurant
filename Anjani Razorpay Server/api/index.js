@@ -9,6 +9,8 @@ const cors = require('cors');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // Initialize Firebase Admin securely from Environment Variables
 // This ensures that the backend can update Firestore securely.
@@ -32,6 +34,18 @@ const razorpay = new Razorpay({
 });
 
 const app = express();
+
+// Security Headers
+app.use(helmet());
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later."
+});
+app.use('/api/', limiter);
+
 app.use(cors({ origin: true }));
 app.use(express.json());
 
@@ -60,6 +74,11 @@ app.get('/api/health', (req, res) => {
 app.post('/api/createOrder', async (req, res) => {
   try {
     const { amount, receipt } = req.body; 
+    
+    // Strict input validation
+    if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Invalid amount provided' });
+    }
     
     // Convert amount to paise as Razorpay expects the smallest currency unit
     const amountInPaise = Math.round(parseFloat(amount) * 100);
@@ -162,6 +181,12 @@ app.post('/api/verifyPayment', async (req, res) => {
     console.error("Verify Payment Error:", error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error("Unhandled Global Error:", err.stack);
+  res.status(500).json({ error: "An unexpected internal server error occurred." });
 });
 
 module.exports = app;
