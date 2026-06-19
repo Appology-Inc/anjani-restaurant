@@ -56,6 +56,17 @@ export default function AppBootScreen() {
       // Initialize global app data
       await loadSavedSession();
 
+      // Ask for location on boot to enable map tracking
+      try {
+        const Location = require('expo-location');
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('Rider location permission denied');
+        }
+      } catch (e) {
+        console.log('Location detection failed:', e);
+      }
+
       // Add minimum boot time so user can see animation
       setTimeout(() => setIsBooting(false), 2000);
     };

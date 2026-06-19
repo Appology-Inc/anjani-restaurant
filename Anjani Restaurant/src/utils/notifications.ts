@@ -25,11 +25,23 @@ if (Platform.OS !== 'web') {
  * @returns {Promise<string | null>} The FCM token if successful, null otherwise.
  */
 export async function registerForPushNotificationsAsync() {
-  if (Platform.OS === 'web') {
-    return;
-  }
-
   let token;
+
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          console.log('Web notification permission denied.');
+        } else {
+          console.log('Web notification permission granted.');
+        }
+      } catch (error) {
+        console.warn('Failed to request web notification permission:', error);
+      }
+    }
+    return null;
+  }
 
   // Set up specific notification channel for Android 8.0+ (Oreo)
   if (Platform.OS === 'android') {

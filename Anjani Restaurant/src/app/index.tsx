@@ -41,39 +41,37 @@ export default function AppBootScreen() {
       } catch (e) {}
 
       // Ask for location on boot to make delivery easier
-      if (Platform.OS !== 'web') {
-        try {
-          // Request foreground location permissions
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status === 'granted') {
-            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-            const [place] = await Location.reverseGeocodeAsync(loc.coords);
-            if (place) {
-              const addrParts = [
-                place.name,
-                place.streetNumber, 
-                place.street, 
-                place.subregion,
-                place.district, 
-                place.city, 
-                place.region,
-                place.postalCode
-              ].filter(Boolean);
-              
-              // Remove duplicates and join to form the address string
-              const addr = Array.from(new Set(addrParts)).join(', ');
-              
-              // Store the detected boot location in the global state
-              useAppStore.getState().setBootLocation({
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude,
-                address: addr
-              });
-            }
+      try {
+        // Request foreground location permissions
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const [place] = await Location.reverseGeocodeAsync(loc.coords);
+          if (place) {
+            const addrParts = [
+              place.name,
+              place.streetNumber, 
+              place.street, 
+              place.subregion,
+              place.district, 
+              place.city, 
+              place.region,
+              place.postalCode
+            ].filter(Boolean);
+            
+            // Remove duplicates and join to form the address string
+            const addr = Array.from(new Set(addrParts)).join(', ');
+            
+            // Store the detected boot location in the global state
+            useAppStore.getState().setBootLocation({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              address: addr
+            });
           }
-        } catch (e) {
-          console.log('Location detection failed:', e);
         }
+      } catch (e) {
+        console.log('Location detection failed:', e);
       }
 
       // Add minimum boot time so user can see animation

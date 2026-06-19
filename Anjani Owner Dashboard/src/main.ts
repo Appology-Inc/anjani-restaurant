@@ -357,6 +357,11 @@ function playNotificationChime() {
  * and restaurant open/close status.
  */
 function initFirestoreSync() {
+  // Request Notification permission for web alerts
+  if ('Notification' in window) {
+    Notification.requestPermission().catch(console.warn);
+  }
+
   // Logic for Firebase data fetching: Listen to the "orders" collection in real-time
   const ordersRef = collection(db, 'orders');
   unsubOrders = onSnapshot(ordersRef, (snapshot) => {
