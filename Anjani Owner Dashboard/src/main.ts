@@ -115,7 +115,7 @@ console.log(
   if (installBtn) {
     installBtn.addEventListener('click', async () => {
       if (!deferredPrompt) {
-        alert('To install this app on your device, please click the browser\'s menu (usually three dots ••• or arrow icon) and select "Install App" or "Add to Home Screen".');
+        (window as any).showAlert('To install this app on your device, please click the browser\'s menu (usually three dots ••• or arrow icon) and select "Install App" or "Add to Home Screen".', 'Install App');
         hidePWAOverlay(false);
         return;
       }
@@ -315,6 +315,56 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
 
     (overlay.querySelector('#modal-cancel') as HTMLElement).onclick = () => close(false);
     (overlay.querySelector('#modal-confirm') as HTMLElement).onclick = () => close(true);
+  });
+};
+
+(window as any).showAlert = function(message: string, title: string = "Notice") {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    Object.assign(overlay.style, {
+      position: 'fixed', inset: '0', backgroundColor: 'rgba(0,0,0,0)',
+      backdropFilter: 'blur(0px)', WebkitBackdropFilter: 'blur(0px)',
+      zIndex: '999999', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'all 0.2s ease-out'
+    });
+
+    const box = document.createElement('div');
+    Object.assign(box.style, {
+      backgroundColor: '#18120A', border: '1px solid rgba(255,255,255,0.15)',
+      borderRadius: '16px', padding: '24px', maxWidth: '340px', width: '100%',
+      textAlign: 'center', transform: 'scale(0.95)',
+      transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+      boxShadow: '0 15px 30px rgba(0,0,0,0.6)'
+    });
+
+    box.innerHTML = `
+      <div style="font-size: 18px; font-weight: 700; color: #FFF; margin-bottom: 8px;">${title}</div>
+      <div style="font-size: 14px; color: #9A8A72; margin-bottom: 24px; line-height: 20px;">${message}</div>
+      <div style="display: flex; justify-content: center;">
+        <button id="modal-ok" style="flex: 1; padding: 12px; border-radius: 10px; background-color: #FF6B00; border: 1px solid #FF6B00; color: #FFF; font-weight: 600; cursor: pointer; transition: opacity 0.2s;">OK</button>
+      </div>
+    `;
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    requestAnimationFrame(() => {
+      overlay.style.backgroundColor = 'rgba(0,0,0,0.4)';
+      overlay.style.backdropFilter = 'blur(8px)';
+      (overlay.style as any).WebkitBackdropFilter = 'blur(8px)';
+      box.style.transform = 'scale(1)';
+    });
+
+    const close = () => {
+      overlay.style.backgroundColor = 'rgba(0,0,0,0)';
+      overlay.style.backdropFilter = 'blur(0px)';
+      (overlay.style as any).WebkitBackdropFilter = 'blur(0px)';
+      box.style.transform = 'scale(0.95)';
+      setTimeout(() => overlay.remove(), 200);
+      resolve(true);
+    };
+
+    (overlay.querySelector('#modal-ok') as HTMLElement).onclick = () => close();
   });
 };
 
@@ -1027,7 +1077,7 @@ async function fetchHistoricalPage() {
   const endStr = el.historical.endDate.value;
 
   if (!startStr || !endStr) {
-    alert("Please select both Start Date and End Date.");
+    (window as any).showAlert("Please select both Start Date and End Date.", "Missing Dates");
     return;
   }
 
@@ -1105,7 +1155,7 @@ async function fetchHistoricalPage() {
 
   } catch (error) {
     console.error("Error fetching historical data:", error);
-    alert("Failed to retrieve historical data. Check console for details.");
+    (window as any).showAlert("Failed to retrieve historical data. Check console for details.", "Error");
   } finally {
     el.historical.fetchBtn.innerHTML = '<i class="ri-search-eye-line"></i> Retrieve Data';
     el.historical.fetchBtn.disabled = false;
@@ -1213,7 +1263,7 @@ async function saveMenuEdit() {
   const isAvailable = el.editAvail.checked;
 
   if (!name || isNaN(price) || price <= 0) {
-    alert("Please enter a valid name and price.");
+    (window as any).showAlert("Please enter a valid name and price.", "Invalid Input");
     return;
   }
 
