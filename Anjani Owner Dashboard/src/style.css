@@ -833,6 +833,11 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 #login-overlay {
   background: #000 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 #login-overlay .modal-card {
@@ -2099,5 +2104,73 @@ body:has(#web-splash-screen:not(.fade-out)) {
   .web-input-group input {
     padding: 10px 14px;
     font-size: 0.9rem;
+  }
+}
+
+/* Height-based responsiveness for Login Screen on smaller heights (e.g. tablet device iFrame) */
+@media (max-height: 850px) {
+  #login-overlay {
+    align-items: center !important;
+  }
+  .web-auth-group {
+    margin-top: 15px !important;
+    margin-bottom: 15px !important;
+    padding: 15px !important;
+    transform: none !important;
+  }
+  .web-auth-group.focused {
+    transform: translateY(-10px) !important;
+  }
+  .web-brand-box {
+    height: 100px !important;
+    margin-bottom: 12px !important;
+  }
+  .brand-title-main {
+    font-size: 2.2rem !important;
+    letter-spacing: 5px !important;
+  }
+  .brand-title-sub {
+    font-size: 0.95rem !important;
+    letter-spacing: 2px !important;
+  }
+  .brand-title-compact {
+    font-size: 1.3rem !important;
+    letter-spacing: 2px !important;
+  }
+  .web-console-card {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .web-console-header {
+    padding: 1.25rem 1rem 0.75rem 1rem !important;
+  }
+  .console-icon {
+    font-size: 1.8rem !important;
+    margin-bottom: 4px !important;
+  }
+  .console-title {
+    font-size: 0.95rem !important;
+  }
+  .console-subtitle {
+    font-size: 0.75rem !important;
+  }
+  .modal-body {
+    padding: 1rem 1.25rem 1.25rem 1.25rem !important;
+  }
+  .web-input-group {
+    margin-bottom: 0.75rem !important;
+  }
+  .web-input-group label {
+    margin-bottom: 4px !important;
+    font-size: 0.75rem !important;
+  }
+  .web-input-group input {
+    padding: 10px 12px !important;
+    font-size: 0.9rem !important;
+  }
+  .web-console-btn {
+    padding: 10px !important;
+    font-size: 0.9rem !important;
+    margin-top: 4px !important;
   }
 }
