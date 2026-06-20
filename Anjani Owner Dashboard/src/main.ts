@@ -1117,6 +1117,7 @@ async function fetchHistoricalPage(direction: 'initial' | 'next' | 'prev') {
       const ordersRef = collection(db, 'orders');
       let q = query(
         ordersRef, 
+        where('status', 'in', ['DELIVERED', 'CANCELLED']),
         where('createdAt', '>=', startTimestamp), 
         where('createdAt', '<=', endTimestamp),
         orderBy('createdAt', 'desc'),
@@ -1127,6 +1128,7 @@ async function fetchHistoricalPage(direction: 'initial' | 'next' | 'prev') {
         currentHistoricalPage++;
         q = query(
           ordersRef, 
+          where('status', 'in', ['DELIVERED', 'CANCELLED']),
           where('createdAt', '>=', startTimestamp), 
           where('createdAt', '<=', endTimestamp),
           orderBy('createdAt', 'desc'),
@@ -1137,6 +1139,7 @@ async function fetchHistoricalPage(direction: 'initial' | 'next' | 'prev') {
         currentHistoricalPage--;
         q = query(
           ordersRef, 
+          where('status', 'in', ['DELIVERED', 'CANCELLED']),
           where('createdAt', '>=', startTimestamp), 
           where('createdAt', '<=', endTimestamp),
           orderBy('createdAt', 'desc'),
@@ -1161,9 +1164,7 @@ async function fetchHistoricalPage(direction: 'initial' | 'next' | 'prev') {
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.status === 'DELIVERED' || data.status === 'CANCELLED') {
-          newOrders.push(data);
-        }
+        newOrders.push(data);
       });
     } else {
       // Offline/Demo mode: Use local systemOrders
