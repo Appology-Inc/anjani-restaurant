@@ -55,6 +55,7 @@ import React from 'react';
 
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { NetworkStatus } from '../components/NetworkStatus';
+import InstallPromptOverlay from '../components/InstallPromptOverlay';
 
 /**
  * RootLayout Component
@@ -103,6 +104,7 @@ export default function RootLayout() {
           <StatusBar style="light" backgroundColor={Colors.dark} />
           
           <NetworkStatus />
+          <InstallPromptOverlay />
 
           <Stack
             screenOptions={{

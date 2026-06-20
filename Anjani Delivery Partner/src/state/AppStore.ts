@@ -5,8 +5,24 @@
  */
 import { create } from 'zustand';
 import { MenuItem, MenuItems } from '../data/MenuData';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { db, isFirebaseConfigured } from '../config/firebase';
+import AsyncStorageOriginal from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+const AsyncStorage = Platform.OS === 'web' ? {
+  getItem: async (key: string) => {
+    try { return window.localStorage.getItem(key); } catch (e) { return null; }
+  },
+  setItem: async (key: string, value: string) => {
+    try { window.localStorage.setItem(key, value); } catch (e) {}
+  },
+  removeItem: async (key: string) => {
+    try { window.localStorage.removeItem(key); } catch (e) {}
+  },
+  clear: async () => {
+    try { window.localStorage.clear(); } catch (e) {}
+  }
+} as any : AsyncStorageOriginal;
+import { db, rtdb, isFirebaseConfigured } from '../config/firebase';
 import * as Notifications from 'expo-notifications';
 
 /**
@@ -32,7 +48,7 @@ export interface CustomerProfile {
   longitude?: number;
 }
 
-export type OrderStatus = 'PLACED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+export type OrderStatus = 'PLACED' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
 
 export interface OrderItem {
   item: MenuItem;
@@ -47,9 +63,12 @@ export interface ActiveOrder {
   id: string;
   items: OrderItem[];
   totalAmount: number;
+  customerName: string;
   customerAddress: string;
   customerPhone: string;
   status: OrderStatus;
+  riderId?: string;
+  createdAt?: number;
   riderLat: number;
   riderLng: number;
   restaurantLat: number;
@@ -152,6 +171,9 @@ interface AppState {
   // Restaurant Status
   isRestaurantOpen: boolean;
   restaurantCloseReason: string | null;
+  isAutoNightMode: boolean;
+  manualOverride: boolean;
+  checkNightMode: () => void;
 }
 
 // API Network Lookups with emulator failovers
@@ -306,44 +328,66 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       });
 
-      // Real-time Firestore sync for customized menu items
-      const menuRef = collection(db, 'menu');
-      onSnapshot(menuRef, (snapshot: any) => {
-        const updates: { [id: string]: any } = {};
-        snapshot.forEach((doc: any) => {
-          updates[doc.id] = doc.data();
-        });
-        
-        const currentMenu = get().menuItems || MenuItems;
-        const updatedMenu = currentMenu.map(item => {
-          const u = updates[item.id];
-          if (u) {
-            return {
-              ...item,
-              name: u.name !== undefined ? u.name : item.name,
-              description: u.description !== undefined ? u.description : item.description,
-              price: u.price !== undefined ? u.price : item.price,
-              isAvailable: u.isAvailable !== undefined ? u.isAvailable : item.isAvailable,
-              isDeleted: u.isDeleted !== undefined ? u.isDeleted : item.isDeleted,
-            };
-          }
-          return item;
-        }).filter(item => !item.isDeleted);
-        set({ menuItems: updatedMenu });
-      }, (error: any) => {
-        console.warn('Firestore menu sync deferred/unauthorized: ', error.message);
-      });
+      // Real-time Firestore sync for ALL menu items has been removed in favor of Smart Caching
+      // The menu is now fetched on-demand inside the statusRef listener when the menuUpdatedAt timestamp changes.
 
       // Real-time Firestore sync for restaurant status
       const { doc } = require('firebase/firestore');
       const statusRef = doc(db, 'settings', 'status');
-      onSnapshot(statusRef, (snapshot: any) => {
+      onSnapshot(statusRef, async (snapshot: any) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
+          const override = !!data.manualOverride;
           set({
             isRestaurantOpen: data.isOpen !== false,
-            restaurantCloseReason: data.reason || null
+            restaurantCloseReason: data.reason || null,
+            manualOverride: override
           });
+          get().checkNightMode();
+
+          // Smart Menu Caching Logic
+          try {
+            const localCacheStr = await AsyncStorage.getItem('anjani_rider_menu_cache');
+            const localTimestampStr = await AsyncStorage.getItem('anjani_rider_menu_updated_at');
+            const localTimestamp = localTimestampStr ? parseInt(localTimestampStr) : 0;
+            const serverTimestamp = data.menuUpdatedAt || 0;
+
+            if (localCacheStr && localTimestamp >= serverTimestamp && serverTimestamp !== 0) {
+              const cachedMenu = JSON.parse(localCacheStr);
+              if (cachedMenu && cachedMenu.length > 0) {
+                set({ menuItems: cachedMenu });
+              }
+            } else {
+              const { getDocs, collection } = require('firebase/firestore');
+              const menuSnapshot = await getDocs(collection(db, 'menu'));
+              const updates: { [id: string]: any } = {};
+              menuSnapshot.forEach((doc: any) => {
+                updates[doc.id] = doc.data();
+              });
+              
+              const currentMenu = get().menuItems || MenuItems;
+              const updatedMenu = currentMenu.map(item => {
+                const u = updates[item.id];
+                if (u) {
+                  return {
+                    ...item,
+                    name: u.name !== undefined ? u.name : item.name,
+                    description: u.description !== undefined ? u.description : item.description,
+                    price: u.price !== undefined ? u.price : item.price,
+                    isAvailable: u.isAvailable !== undefined ? u.isAvailable : item.isAvailable,
+                    isDeleted: u.isDeleted !== undefined ? u.isDeleted : item.isDeleted,
+                  };
+                }
+                return item;
+              }).filter(item => !item.isDeleted);
+              
+              set({ menuItems: updatedMenu });
+              AsyncStorage.setItem('anjani_rider_menu_cache', JSON.stringify(updatedMenu)).catch(() => {});
+              AsyncStorage.setItem('anjani_rider_menu_updated_at', serverTimestamp.toString()).catch(() => {});
+            }
+          } catch (e: any) {
+            console.warn("Menu cache/fetch error:", e);
+          }
         }
       }, (error: any) => {
         console.warn('Firestore status sync deferred/unauthorized: ', error.message);
@@ -357,6 +401,14 @@ export const useAppStore = create<AppState>((set, get) => {
   return {
     isRestaurantOpen: true,
     restaurantCloseReason: null,
+    isAutoNightMode: false,
+    manualOverride: false,
+    checkNightMode: () => {
+      const hour = new Date().getHours();
+      const isNight = hour >= 23 || hour < 11;
+      const override = get().manualOverride;
+      set({ isAutoNightMode: isNight && !override });
+    },
 
     currentUser: null,
     login: async (profile) => {
@@ -751,6 +803,7 @@ export const useAppStore = create<AppState>((set, get) => {
         id: orderId,
         items: orderItems,
         totalAmount,
+        customerName: get().currentUser?.name || 'Customer',
         customerAddress: address,
         customerPhone: phone,
         status: 'PLACED',
@@ -825,7 +878,7 @@ export const useAppStore = create<AppState>((set, get) => {
         // Background cache save & sync user (including updated previousOrders!)
         AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(updatedOrders))
           .then(() => get().syncWithCloud())
-          .catch(err => console.error(err));
+          .catch((err: any) => console.error(err));
       } else {
         set({ activeOrder: null });
       }
@@ -907,7 +960,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
       set({ previousOrders: orders });
       AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(orders))
-        .catch(err => console.error(err));
+        .catch((err: any) => console.error(err));
     },
 
     systemOrders: [],
@@ -984,12 +1037,12 @@ export const useAppStore = create<AppState>((set, get) => {
 
       set({ systemOrders: updatedSystem, activeOrder: updatedActive });
 
-      if (isFirebaseConfigured) {
+      if (isFirebaseConfigured && rtdb) {
         try {
-          const { doc, updateDoc } = require('firebase/firestore');
-          const orderRef = doc(db, 'orders', orderId);
-          updateDoc(orderRef, { riderLat: lat, riderLng: lng })
-            .catch((e: any) => console.log('Firestore position update deferred:', e.message));
+          const { ref, set } = require('firebase/database');
+          const trackingRef = ref(rtdb, `tracking/${orderId}`);
+          set(trackingRef, { lat, lng })
+            .catch((e: any) => console.log('RTDB position update deferred:', e.message));
         } catch (e: any) {
           console.log('Firebase position update skipped:', e.message);
         }
@@ -1087,6 +1140,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const demoOrders: ActiveOrder[] = [
         {
           id: 'ORD-55410',
+          customerName: 'Aarav Mehta',
           items: [
             {
               item: {
@@ -1130,6 +1184,7 @@ export const useAppStore = create<AppState>((set, get) => {
         },
         {
           id: 'ORD-21094',
+          customerName: 'Priya Sharma',
           items: [
             {
               item: {
@@ -1194,22 +1249,34 @@ export const useAppStore = create<AppState>((set, get) => {
 
 // Setup Firebase Auth for Rider
 if (isFirebaseConfigured) {
+  // Prevent hot-reload memory leaks
+  if ((globalThis as any)._anjaniRiderInterval) clearInterval((globalThis as any)._anjaniRiderInterval);
+  
+  useAppStore.getState().checkNightMode();
+  
+  // Periodic check every 1 minute
+  (globalThis as any)._anjaniRiderInterval = setInterval(() => {
+    useAppStore.getState().checkNightMode();
+  }, 60000);
+
   const { auth } = require('../config/firebase');
-  const { signInWithEmailAndPassword, onAuthStateChanged } = require('firebase/auth');
-  
-  signInWithEmailAndPassword(auth, 'rider@anjani.com', 'rider123').catch((error: any) => {
-    console.warn("Rider Firebase Auth failed:", error);
-  });
-  
-  onAuthStateChanged(auth, (user: any) => {
-    if (user) {
-      console.log("Rider authenticated successfully with UID:", user.uid);
-      setTimeout(() => {
-        const store = useAppStore.getState();
-        if (store.systemOrders.length === 0) {
-           // Resync or rely on snapshot retry mechanism
-        }
-      }, 1000);
-    }
-  });
+  if (auth) {
+    const { signInWithEmailAndPassword, onAuthStateChanged } = require('firebase/auth');
+    
+    signInWithEmailAndPassword(auth, 'rider@anjani.com', 'rider123').catch((error: any) => {
+      console.warn("Rider Firebase Auth failed:", error);
+    });
+    
+    onAuthStateChanged(auth, (user: any) => {
+      if (user) {
+        console.log("Rider authenticated successfully with UID:", user.uid);
+        setTimeout(() => {
+          const store = useAppStore.getState();
+          if (store.systemOrders.length === 0) {
+             // Resync or rely on snapshot retry mechanism
+          }
+        }, 1000);
+      }
+    });
+  }
 }

@@ -84,7 +84,7 @@ export default function HistoryTab() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 'env(safe-area-inset-top)' : insets.top }]}>
+    <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? ('env(safe-area-inset-top)' as any) : insets.top }]}>
       <View style={[styles.header, isLargeScreen && { paddingHorizontal: 24, paddingVertical: 24, borderBottomWidth: 0 }]}>
         <Text style={[styles.headerTitle, isLargeScreen && { fontSize: 24 }]}>Today's Deliveries</Text>
       </View>

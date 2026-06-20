@@ -5,7 +5,7 @@
  * and chart rendering using Chart.js.
  */
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, doc, updateDoc, setDoc, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, doc, updateDoc, setDoc, query, where, getDocs, getDoc, limit, orderBy, startAfter } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { MenuItems as InitialMenuItems, MenuCategories } from './menuData';
 
@@ -225,6 +225,8 @@ const el = {
     cancelledOrders: document.getElementById('hist-cancelled-orders') as HTMLElement,
     totalRevenue: document.getElementById('hist-total-revenue') as HTMLElement,
     tbody: document.getElementById('historical-tbody') as HTMLElement,
+    loadMoreBtn: document.getElementById('load-more-historical-btn') as HTMLButtonElement,
+    paginationContainer: document.getElementById('historical-pagination') as HTMLElement,
   },
 };
 
@@ -1006,7 +1008,21 @@ function renderMenu() {
 
 // --- Historical Data Logic ---
 
+let lastHistoricalDoc: any = null;
+let currentHistoricalOrders: any[] = [];
+
 el.historical.fetchBtn.addEventListener('click', async () => {
+  lastHistoricalDoc = null;
+  currentHistoricalOrders = [];
+  el.historical.paginationContainer.style.display = 'none';
+  await fetchHistoricalPage();
+});
+
+el.historical.loadMoreBtn.addEventListener('click', async () => {
+  await fetchHistoricalPage();
+});
+
+async function fetchHistoricalPage() {
   const startStr = el.historical.startDate.value;
   const endStr = el.historical.endDate.value;
 
@@ -1026,39 +1042,66 @@ el.historical.fetchBtn.addEventListener('click', async () => {
 
   el.historical.fetchBtn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Retrieving...';
   el.historical.fetchBtn.disabled = true;
+  el.historical.loadMoreBtn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Loading...';
+  el.historical.loadMoreBtn.disabled = true;
 
   try {
-    let historicalOrders: any[] = [];
+    let newOrders: any[] = [];
     
     // Check if we are connected to Firebase
     if (auth.currentUser) {
       const ordersRef = collection(db, 'orders');
-      const q = query(
+      let q = query(
         ordersRef, 
         where('createdAt', '>=', startTimestamp), 
-        where('createdAt', '<=', endTimestamp)
+        where('createdAt', '<=', endTimestamp),
+        orderBy('createdAt', 'desc'),
+        limit(50)
       );
+
+      if (lastHistoricalDoc) {
+        q = query(
+          ordersRef, 
+          where('createdAt', '>=', startTimestamp), 
+          where('createdAt', '<=', endTimestamp),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastHistoricalDoc),
+          limit(50)
+        );
+      }
   
       const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        lastHistoricalDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+        if (querySnapshot.docs.length < 50) {
+          el.historical.paginationContainer.style.display = 'none';
+        } else {
+          el.historical.paginationContainer.style.display = 'flex';
+        }
+      } else {
+        el.historical.paginationContainer.style.display = 'none';
+      }
+
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.status === 'DELIVERED' || data.status === 'CANCELLED') {
-          historicalOrders.push(data);
+          newOrders.push(data);
         }
       });
     } else {
       // Offline/Demo mode: Use local systemOrders
-      historicalOrders = systemOrders.filter(o => 
+      newOrders = systemOrders.filter(o => 
         (o.status === 'DELIVERED' || o.status === 'CANCELLED') && 
         o.createdAt >= startTimestamp && 
         o.createdAt <= endTimestamp
       );
+      newOrders.sort((a, b) => b.createdAt - a.createdAt);
+      el.historical.paginationContainer.style.display = 'none';
     }
 
-
-
-    historicalOrders.sort((a, b) => b.createdAt - a.createdAt);
-    renderHistoricalTable(historicalOrders);
+    currentHistoricalOrders = [...currentHistoricalOrders, ...newOrders];
+    renderHistoricalTable(currentHistoricalOrders);
 
   } catch (error) {
     console.error("Error fetching historical data:", error);
@@ -1066,8 +1109,10 @@ el.historical.fetchBtn.addEventListener('click', async () => {
   } finally {
     el.historical.fetchBtn.innerHTML = '<i class="ri-search-eye-line"></i> Retrieve Data';
     el.historical.fetchBtn.disabled = false;
+    el.historical.loadMoreBtn.innerHTML = '<i class="ri-arrow-down-line"></i> Load More';
+    el.historical.loadMoreBtn.disabled = false;
   }
-});
+}
 
 function renderHistoricalTable(orders: any[]) {
   if (orders.length === 0) {
@@ -1184,6 +1229,11 @@ async function saveMenuEdit() {
   try {
     const itemRef = doc(db, 'menu', id);
     await setDoc(itemRef, { id, name, description: desc, price, isAvailable }, { merge: true });
+    
+    // Broadcast cache invalidation to all apps
+    const statusRef = doc(db, 'settings', 'status');
+    await setDoc(statusRef, { menuUpdatedAt: Date.now() }, { merge: true });
+
     showToast('Menu item saved successfully!', 'success');
   } catch (e: any) {
     console.warn('Menu save error:', e);
@@ -1202,6 +1252,11 @@ async function deleteMenuItem() {
   try {
     const itemRef = doc(db, 'menu', id);
     await setDoc(itemRef, { isDeleted: true }, { merge: true });
+    
+    // Broadcast cache invalidation to all apps
+    const statusRef = doc(db, 'settings', 'status');
+    await setDoc(statusRef, { menuUpdatedAt: Date.now() }, { merge: true });
+
     showToast('Menu item deleted.', 'success');
   } catch (e: any) {
     console.warn('Menu delete error:', e);

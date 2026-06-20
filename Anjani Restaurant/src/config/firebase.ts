@@ -1,16 +1,18 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeAuth, getAuth } from 'firebase/auth';
 import { getFirestore, setLogLevel } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
-  apiKey:            process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "YOUR_API_KEY_HERE",
+  apiKey:            process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyDgZbCT3tliCLwY5KwfgkuDuFeW9qSdoeQ",
   authDomain:        process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "anjani-restaurant.firebaseapp.com",
   projectId:         process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "anjani-restaurant",
   storageBucket:     process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "anjani-restaurant.firebasestorage.app",
   messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "560562817811",
   appId:             process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "1:560562817811:web:a445988d46f47542ed28e6",
+  databaseURL:       process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL || "https://anjani-restaurant-default-rtdb.firebaseio.com",
 };
 
 // Check if valid config exists. If the apiKey is the placeholder, we disable Firebase and use local fallback mode.
@@ -22,6 +24,7 @@ const isFirebaseConfigured =
 let app;
 let auth: any = null;
 let db: any = null;
+let rtdb: any = null;
 
 if (isFirebaseConfigured) {
   try {
@@ -43,8 +46,9 @@ if (isFirebaseConfigured) {
       auth = getAuth(app);
     }
     db = getFirestore(app);
+    rtdb = getDatabase(app);
     setLogLevel('silent');
-    console.log("🔥 Firebase Auth and Cloud Firestore initialized successfully!");
+    console.log("🔥 Firebase Auth, Cloud Firestore, and RTDB initialized successfully!");
   } catch (error) {
     console.error("❌ Failed to initialize Firebase SDK:", error);
   }
@@ -55,4 +59,4 @@ if (isFirebaseConfigured) {
 import { getFunctions } from 'firebase/functions';
 const functions = isFirebaseConfigured ? getFunctions(app) : null;
 
-export { auth, db, isFirebaseConfigured, functions, app };
+export { auth, db, rtdb, isFirebaseConfigured, functions, app };

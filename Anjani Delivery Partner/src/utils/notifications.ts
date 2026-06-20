@@ -1,8 +1,3 @@
-/**
- * @file notifications.ts
- * @description Utility functions for managing push notifications across different platforms (iOS, Android, Web).
- * Handles token registration and local notification scheduling.
- */
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -17,32 +12,13 @@ if (Platform.OS !== 'web') {
   });
 }
 
-/**
- * Requests necessary permissions and registers the device for push notifications.
- * Retrieves the Firebase Cloud Messaging (FCM) token if applicable.
- * 
- * @returns {Promise<string | null>} The FCM push token, or null if permissions are denied or unsupported.
- */
 export async function registerForPushNotificationsAsync() {
-  let token;
-
   if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          console.log('Web notification permission denied.');
-        } else {
-          console.log('Web notification permission granted.');
-        }
-      } catch (error) {
-        console.warn('Failed to request web notification permission:', error);
-      }
-    }
-    return null;
+    return;
   }
 
-  // Set up specific notification channel for Android 8.0+ (Oreo)
+  let token;
+
   if (Platform.OS === 'android') {
     try {
       await Notifications.setNotificationChannelAsync('default', {
@@ -82,13 +58,6 @@ export async function registerForPushNotificationsAsync() {
   return token;
 }
 
-/**
- * Schedules a local push notification immediately.
- * Falls back to standard browser notifications on the web if supported.
- * 
- * @param {string} title - The title of the notification.
- * @param {string} body - The main body text of the notification.
- */
 export async function scheduleLocalNotification(title: string, body: string) {
   if (Platform.OS === 'web' || !Notifications || typeof Notifications.scheduleNotificationAsync !== 'function') {
     console.log(`[Web Notification] ${title}: ${body}`);

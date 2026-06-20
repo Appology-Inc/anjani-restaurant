@@ -1,26 +1,20 @@
-/**
- * @file index.tsx
- * @description Boot screen and entry point for the Anjani Delivery Partner app. Handles cinematic animations and session initialization.
- */
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Animated, Text, Dimensions } from 'react-native';
+import { AppologyBrand } from '@/components/AppologyBrand';
+import { View, StyleSheet, Animated, Text, Dimensions, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAppStore } from '../state/AppStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { AnimatedDeliveryTrack } from '../components/AnimatedDeliveryTrack';
+import * as SplashScreen from 'expo-splash-screen';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const scale = Math.min(SCREEN_WIDTH / 375, 1.2);
-const normalize = (size: number) => Math.round(size * scale);
+const normalize = (size: number) => {
+  if (Platform.OS === 'web') return size;
+  const { width: SCREEN_WIDTH } = Dimensions.get('window');
+  const scale = Math.min((SCREEN_WIDTH || 375) / 375, 1.2);
+  return Math.round(size * scale);
+};
 
-/**
- * Boot Screen Component
- * Displays a cinematic entry sequence and initializes user session.
- * Routes to the main tab interface if a session exists, otherwise to auth.
- * 
- * @returns {JSX.Element} The rendered boot screen component
- */
 export default function AppBootScreen() {
   const router = useRouter();
   const { loadSavedSession, currentUser } = useAppStore();
@@ -56,16 +50,10 @@ export default function AppBootScreen() {
       // Initialize global app data
       await loadSavedSession();
 
-      // Ask for location on boot to enable map tracking
+      // Dismiss native splash screen now that JS layout is ready
       try {
-        const Location = require('expo-location');
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.log('Rider location permission denied');
-        }
-      } catch (e) {
-        console.log('Location detection failed:', e);
-      }
+        await SplashScreen.hideAsync();
+      } catch (e) {}
 
       // Add minimum boot time so user can see animation
       setTimeout(() => setIsBooting(false), 2000);
@@ -98,7 +86,6 @@ export default function AppBootScreen() {
           }
         ]}
         resizeMode="cover"
-        blurRadius={4}
       />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }]}>
         <Animated.View style={{ opacity, alignItems: 'center', width: '100%' }}>
@@ -113,6 +100,13 @@ export default function AppBootScreen() {
             <Text style={styles.tagline}>Served Hot, Delivered Fast 🔥</Text>
           </View>
         </Animated.View>
+
+        <Animated.View style={{ opacity, position: 'absolute', bottom: normalize(40), width: '100%', alignItems: 'center' }}>
+          <Text style={{ fontSize: normalize(12), color: '#E0E0E0', fontWeight: '500' }}>
+            Powered by{' '}
+            <AppologyBrand />
+          </Text>
+        </Animated.View>
       </View>
     </View>
   );
@@ -122,6 +116,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    overflow: 'hidden',
   },
   title: {
     fontSize: normalize(26),
@@ -158,5 +153,16 @@ const styles = StyleSheet.create({
     letterSpacing: normalize(3),
     textTransform: 'uppercase',
     textAlign: 'center',
+  },
+  appologySignature: {
+    fontSize: normalize(10),
+    fontWeight: '700',
+    color: '#FF6B00',
+    letterSpacing: normalize(4),
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(255, 107, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
 });

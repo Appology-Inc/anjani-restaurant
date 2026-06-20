@@ -35,7 +35,7 @@ const AsyncStorage = Platform.OS === 'web' ? {
   }
 } as any : AsyncStorageOriginal;
 
-import { db, auth, isFirebaseConfigured } from '../config/firebase';
+import { db, rtdb, auth, isFirebaseConfigured } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { scheduleLocalNotification } from '../utils/notifications';
 import { Alert } from 'react-native';
@@ -302,6 +302,7 @@ const userCoords = { lat: 17.0850, lng: 82.1400 };
  */
 export const useAppStore = create<AppState>((set, get) => {
   let timerIds: { [orderId: string]: any } = {};
+  let trackingUnsubs: { [orderId: string]: Function } = {};
   let cloudUnsub: any = null;
   let menuUnsub: any = null;
   let statusUnsub: any = null;
@@ -410,6 +411,41 @@ export const useAppStore = create<AppState>((set, get) => {
                 // If both are in the same terminal/active group, sort by createdAt descending
                 return (b.createdAt || 0) - (a.createdAt || 0);
               });
+
+              // RTDB Live Tracking Listeners
+              if (isFirebaseConfigured && rtdb) {
+                const { ref, onValue, off } = require('firebase/database');
+                
+                newActives.forEach(active => {
+                  if (active.status === 'OUT_FOR_DELIVERY') {
+                    if (!trackingUnsubs[active.id]) {
+                      const trackingRef = ref(rtdb, `tracking/${active.id}`);
+                      const listener = onValue(trackingRef, (snap: any) => {
+                        if (snap.exists()) {
+                          const data = snap.val();
+                          if (data.lat && data.lng) {
+                            get().updateRiderSimulatedPosition(active.id, data.lat, data.lng);
+                          }
+                        }
+                      });
+                      trackingUnsubs[active.id] = () => off(trackingRef, 'value', listener);
+                    }
+                  } else {
+                    if (trackingUnsubs[active.id]) {
+                      trackingUnsubs[active.id]();
+                      delete trackingUnsubs[active.id];
+                    }
+                  }
+                });
+                
+                Object.keys(trackingUnsubs).forEach(orderId => {
+                  if (!newActives.find(a => a.id === orderId && a.status === 'OUT_FOR_DELIVERY')) {
+                    trackingUnsubs[orderId]();
+                    delete trackingUnsubs[orderId];
+                  }
+                });
+              }
+
               set({ activeOrders: newActives });
               AsyncStorage.setItem('anjani_active_orders', JSON.stringify(newActives)).catch(() => {});
             }, (error: any) => {
@@ -419,44 +455,13 @@ export const useAppStore = create<AppState>((set, get) => {
             console.log("No authenticated user, skipping orders listener");
           }
 
-      // Real-time Firestore sync for ALL menu items
-      if (menuUnsub) menuUnsub();
-      const menuRef = collection(db, 'menu');
-      menuUnsub = onSnapshot(menuRef, (snapshot: any) => {
-        const dbItems: MenuItem[] = [];
-        snapshot.forEach((doc: any) => {
-          const data = doc.data();
-          if (!data.isDeleted) {
-            dbItems.push({
-              id: doc.id,
-              name: data.name,
-              category: data.category,
-              description: data.description || '',
-              price: Number(data.price),
-              imageUrl: data.imageUrl || '',
-              isVeg: !!data.isVeg,
-              rating: Number(data.rating || 4),
-              isAvailable: data.isAvailable !== false,
-            });
-          }
-        });
-        
-        if (dbItems.length > 0) {
-          set({ menuItems: dbItems });
-        } else {
-          set({ menuItems: MenuItems });
-        }
-      }, (error: any) => {
-        console.warn('Firestore menu sync deferred/unauthorized: ', error.message);
-        if (!get().menuItems || get().menuItems.length === 0) {
-          set({ menuItems: MenuItems });
-        }
-      });
+      // Real-time Firestore sync for ALL menu items has been removed in favor of Smart Caching
+      // The menu is now fetched on-demand inside the statusUnsub listener when the menuUpdatedAt timestamp changes.
 
         // Real-time Firestore sync for restaurant status
         if (statusUnsub) statusUnsub();
         const statusRef = doc(db, 'settings', 'status');
-        statusUnsub = onSnapshot(statusRef, (docSnap: any) => {
+        statusUnsub = onSnapshot(statusRef, async (docSnap: any) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
             const override = !!data.manualOverride;
@@ -466,6 +471,50 @@ export const useAppStore = create<AppState>((set, get) => {
               manualOverride: override
             });
             get().checkNightMode();
+
+            // Smart Menu Caching Logic
+            try {
+              const localCacheStr = await AsyncStorage.getItem('anjani_menu_cache');
+              const localTimestampStr = await AsyncStorage.getItem('anjani_menu_updated_at');
+              const localTimestamp = localTimestampStr ? parseInt(localTimestampStr) : 0;
+              const serverTimestamp = data.menuUpdatedAt || 0;
+
+              if (localCacheStr && localTimestamp >= serverTimestamp && serverTimestamp !== 0) {
+                // Use cache
+                const cachedMenu = JSON.parse(localCacheStr);
+                if (cachedMenu && cachedMenu.length > 0) {
+                  set({ menuItems: cachedMenu });
+                }
+              } else {
+                // Fetch from Firebase
+                const { getDocs, collection } = require('firebase/firestore');
+                const menuSnapshot = await getDocs(collection(db, 'menu'));
+                const dbItems: MenuItem[] = [];
+                menuSnapshot.forEach((docSnapItem: any) => {
+                  const mData = docSnapItem.data();
+                  if (!mData.isDeleted) {
+                    dbItems.push({
+                      id: docSnapItem.id,
+                      name: mData.name,
+                      category: mData.category,
+                      description: mData.description || '',
+                      price: Number(mData.price),
+                      imageUrl: mData.imageUrl || '',
+                      isVeg: !!mData.isVeg,
+                      rating: Number(mData.rating || 4),
+                      isAvailable: mData.isAvailable !== false,
+                    });
+                  }
+                });
+                if (dbItems.length > 0) {
+                  set({ menuItems: dbItems });
+                  AsyncStorage.setItem('anjani_menu_cache', JSON.stringify(dbItems)).catch(() => {});
+                  AsyncStorage.setItem('anjani_menu_updated_at', serverTimestamp.toString()).catch(() => {});
+                }
+              }
+            } catch (e: any) {
+              console.warn("Menu cache/fetch error:", e);
+            }
           }
         }, (error: any) => {
           console.warn('Firestore status sync deferred/unauthorized: ', error.message);
@@ -577,6 +626,8 @@ export const useAppStore = create<AppState>((set, get) => {
 
       Object.values(timerIds).forEach(t => clearInterval(t));
       timerIds = {};
+      Object.values(trackingUnsubs).forEach(u => u());
+      trackingUnsubs = {};
       if (cloudUnsub) { cloudUnsub(); cloudUnsub = null; }
       if (menuUnsub) { menuUnsub(); menuUnsub = null; }
       if (statusUnsub) { statusUnsub(); statusUnsub = null; }
@@ -1432,17 +1483,6 @@ export const useAppStore = create<AppState>((set, get) => {
       );
 
       set({ systemOrders: updatedSystem, activeOrders: updatedActives });
-
-      if (isFirebaseConfigured) {
-        try {
-          const { doc, updateDoc } = require('firebase/firestore');
-          const orderRef = doc(db, 'orders', orderId);
-          updateDoc(orderRef, { riderLat: lat, riderLng: lng })
-            .catch((e: any) => console.log('Firestore position update deferred:', e.message));
-        } catch (e: any) {
-          console.log('Firebase position update skipped:', e.message);
-        }
-      }
     },
 
     toggleDishAvailability: async (dishId) => {

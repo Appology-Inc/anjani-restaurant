@@ -245,12 +245,12 @@
     <div id="app">
       
       <header class="navbar">
-        <div class="brand" id="brand-header-title" style="cursor: pointer;" title="Install App">
+        <div class="brand">
           <i class="ri-fire-fill brand-icon"></i>
           <div class="brand-info">
             <div class="brand-title-row">
               <h1 class="brand-title">
-                <span class="brand-name">
+                <span class="brand-name" id="brand-header-title" style="cursor: pointer;" title="Install App">
                   <span class="brand-word-first">Anjani</span>
                   <span class="brand-word-second">Restaurant</span>
                 </span>
@@ -444,6 +444,11 @@
                 <tr><td colspan="6" class="text-center" style="color: var(--text-secondary); padding: 2rem;">Select dates and retrieve data to view history.</td></tr>
               </tbody>
             </table>
+          </div>
+          <div id="historical-pagination" style="display: none; text-align: center; padding: 1.5rem 0;">
+            <button id="load-more-historical-btn" class="btn-primary" style="padding: 0.75rem 2rem; border-radius: 20px;">
+              <i class="ri-arrow-down-line"></i> Load More
+            </button>
           </div>
         </div>
 

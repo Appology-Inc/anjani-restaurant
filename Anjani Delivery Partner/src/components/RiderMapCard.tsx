@@ -1,8 +1,3 @@
-/**
- * @file RiderMapCard.tsx
- * @description Provides a live map view tracking the rider, restaurant, and destination.
- * Includes a fallback isometric view for web or unsupported platforms.
- */
 import React, { useRef, useEffect } from 'react';
 import {
   StyleSheet,
@@ -15,9 +10,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ActiveOrder } from '../state/AppStore';
+import { Colors } from '../constants/Colors';
 
 // ─── Map Imports with Safety Guards ──────────────────────────────────────────
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from './Maps';
+import * as Location from 'expo-location';
+import { useState } from 'react';
 
 // Sleek dark-mode style for React Native Maps
 const mapDarkStyle = [
@@ -34,18 +32,13 @@ const mapDarkStyle = [
   { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#000000" }] }
 ];
 
-/**
- * Component that displays a live map tracking delivery progress.
- * Renders native maps on iOS/Android and an isometric illustration on Web.
- * 
- * @param props - Component properties.
- * @param props.order - The active order details used to display locations.
- */
 export function RiderMapCard({ order }: { order: ActiveOrder }) {
   const mapRef = useRef<any>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Pulsating dot indicator loop for the rider icon
+  const [liveCoords, setLiveCoords] = useState({ lat: order.riderLat, lng: order.riderLng });
+
+  // Pulsating dot indicator loop
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -61,21 +54,37 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
         }),
       ])
     ).start();
+
+    // Fetch immediate live location to override mock/stale coordinates
+    let watcher: any = null;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const initLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setLiveCoords({ lat: initLoc.coords.latitude, lng: initLoc.coords.longitude });
+          
+          watcher = await Location.watchPositionAsync(
+            { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 5 },
+            (loc) => setLiveCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+          );
+        }
+      } catch (e) {}
+    })();
+    
+    return () => {
+      if (watcher && watcher.remove) watcher.remove();
+    };
   }, []);
 
-  /**
-   * Adjusts the map camera to encompass all relevant points: 
-   * the restaurant, the customer, and the rider.
-   */
   const recenterMap = () => {
     if (mapRef.current) {
       try {
         const coords = [
           { latitude: order.restaurantLat, longitude: order.restaurantLng },
           { latitude: order.userLat, longitude: order.userLng },
-          { latitude: order.riderLat, longitude: order.riderLng }
+          { latitude: liveCoords.lat, longitude: liveCoords.lng }
         ];
-        // Ensure all coordinates are visible with some padding
         mapRef.current.fitToCoordinates(coords, {
           edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
           animated: true
@@ -86,15 +95,14 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
     }
   };
 
-  // Responsive camera framing on live rider GPS updates.
-  // Delay the recentering slightly to ensure map has fully rendered.
+  // Responsive camera framing on live rider GPS updates
   useEffect(() => {
     if (mapRef.current) {
       setTimeout(() => {
         recenterMap();
       }, 600);
     }
-  }, [order.riderLat, order.riderLng]);
+  }, [liveCoords.lat, liveCoords.lng]);
 
   const showLiveMap = Platform.OS !== 'web';
   
@@ -104,62 +112,18 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
         <MapView
           ref={mapRef}
           style={styles.map}
-          provider={PROVIDER_DEFAULT}
           initialRegion={{
             latitude: (order.restaurantLat + order.userLat) / 2,
             longitude: (order.restaurantLng + order.userLng) / 2,
             latitudeDelta: Math.abs(order.restaurantLat - order.userLat) * 1.8 || 0.05,
             longitudeDelta: Math.abs(order.restaurantLng - order.userLng) * 1.8 || 0.05,
           }}
-          scrollEnabled={true}
-          zoomEnabled={true}
-          customMapStyle={mapDarkStyle}
-        >
-          {/* Restaurant Hub */}
-          <Marker
-            coordinate={{ latitude: order.restaurantLat, longitude: order.restaurantLng }}
-            title="Anjani Restaurant"
-            description="Pickup Location"
-          >
-            <View style={[styles.mapIconWrap, { backgroundColor: '#10B981', borderColor: '#10B981' }]}>
-              <Ionicons name="restaurant" size={13} color="#FFF" />
-            </View>
-          </Marker>
-
-          {/* Destination Hub */}
-          <Marker
-            coordinate={{ latitude: order.userLat, longitude: order.userLng }}
-            title="Customer Location"
-            description={order.customerAddress}
-          >
-            <View style={styles.mapIconWrap}>
-              <Ionicons name="home" size={13} color="#FFF" />
-            </View>
-          </Marker>
-
-          {/* Gliding Rider */}
-          <Marker
-            coordinate={{ latitude: order.riderLat, longitude: order.riderLng }}
-            title="You"
-            description="Your current location"
-          >
-            <Animated.View style={[styles.mapIconWrap, { backgroundColor: '#3B82F6', borderColor: '#3B82F6', transform: [{ scale: pulseAnim }] }]}>
-              <Ionicons name="bicycle" size={13} color="#FFF" />
-            </Animated.View>
-          </Marker>
-
-          {/* Dash route polyline */}
-          <Polyline
-            coordinates={[
-              { latitude: order.restaurantLat, longitude: order.restaurantLng },
-              { latitude: order.riderLat, longitude: order.riderLng },
-              { latitude: order.userLat, longitude: order.userLng },
-            ]}
-            strokeColor="#FF6D00"
-            strokeWidth={3}
-            lineDashPattern={[6, 6]}
-          />
-        </MapView>
+          markers={[
+            { lat: order.restaurantLat, lng: order.restaurantLng, type: 'restaurant' },
+            { lat: order.userLat, lng: order.userLng, type: 'customer' },
+            { lat: liveCoords.lat, lng: liveCoords.lng, type: 'rider' }
+          ]}
+        />
         
         <TouchableOpacity 
           style={styles.recenterBtn} 
@@ -177,7 +141,7 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
               ios: `maps:0,0?q=${order.userLat},${order.userLng}`,
               android: `google.navigation:q=${order.userLat},${order.userLng}`
             });
-            if (url) Linking.openURL(url);
+            if (url) Linking.openURL(url).catch(() => {});
           }}
           activeOpacity={0.9}
         >
@@ -188,7 +152,31 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
     );
   }
 
-  // High fidelity isometric fallback grid for Web/Simulators
+  if (Platform.OS === 'web') {
+    // Import here to avoid issues on native
+    const { createElement } = require('react-native');
+    const iframe = createElement('iframe', {
+      src: `https://maps.google.com/maps?q=${order.userLat},${order.userLng}&z=14&output=embed`,
+      style: { width: '100%', height: '100%', border: 'none' },
+      allowFullScreen: true,
+      loading: 'lazy',
+    });
+
+    return (
+      <View style={styles.mapContainer}>
+        {iframe}
+        <TouchableOpacity 
+          style={styles.navigateBtn} 
+          onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${order.userLat},${order.userLng}`).catch(() => {})}
+        >
+          <Ionicons name="navigate-circle" size={24} color="#FFF" style={{ marginRight: 6 }} />
+          <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>Navigate via Maps</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Fallback for non-web environments where MapView might be missing or crashing
   return (
     <View style={styles.fallbackMapContainer}>
       <View style={styles.isometricTimeline}>
@@ -219,7 +207,7 @@ export function RiderMapCard({ order }: { order: ActiveOrder }) {
       <View style={styles.fallbackStats}>
         <Ionicons name="compass-outline" size={15} color="#FF6B00" />
         <Text style={styles.fallbackStatsTxt}>
-          Your Coordinates: <Text style={styles.statsCoord}>{order.riderLat.toFixed(5)}, {order.riderLng.toFixed(5)}</Text>
+          Your Coordinates: <Text style={styles.statsCoord}>{liveCoords.lat.toFixed(5)}, {liveCoords.lng.toFixed(5)}</Text>
         </Text>
       </View>
     </View>
@@ -292,13 +280,13 @@ const styles = StyleSheet.create({
   fallbackMapContainer: {
     height: 140,
     width: '100%',
-    backgroundColor: '#18120A',
+    backgroundColor: Colors.surface,
     padding: 16,
     justifyContent: 'center',
     marginTop: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,107,0,0.18)',
+    borderColor: Colors.border,
   },
   isometricTimeline: {
     flexDirection: 'row',
