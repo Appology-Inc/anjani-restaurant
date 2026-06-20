@@ -26,9 +26,20 @@ service cloud.firestore {
     }
 
     // --- Users Collection ---
-    // Users can only read/write their own profile document
     match /users/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow creation only if they set their role to 'customer'
+      allow create: if isAuthenticated() && 
+                    request.auth.uid == userId && 
+                    (!request.resource.data.keys().hasAll(['role']) || request.resource.data.role == 'customer');
+                    
+      // Allow update only if they aren't trying to change their role
+      allow update: if isAuthenticated() && 
+                    request.auth.uid == userId && 
+                    (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
+                    
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
     }
 
     // --- Menu Collection ---
