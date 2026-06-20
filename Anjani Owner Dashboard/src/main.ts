@@ -1107,7 +1107,7 @@ async function fetchHistoricalPage() {
         where('createdAt', '>=', startTimestamp), 
         where('createdAt', '<=', endTimestamp),
         orderBy('createdAt', 'desc'),
-        limit(50)
+        limit(10)
       );
 
       if (lastHistoricalDoc) {
@@ -1117,7 +1117,7 @@ async function fetchHistoricalPage() {
           where('createdAt', '<=', endTimestamp),
           orderBy('createdAt', 'desc'),
           startAfter(lastHistoricalDoc),
-          limit(50)
+          limit(10)
         );
       }
   
@@ -1125,7 +1125,7 @@ async function fetchHistoricalPage() {
       
       if (!querySnapshot.empty) {
         lastHistoricalDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-        if (querySnapshot.docs.length < 50) {
+        if (querySnapshot.docs.length < 10) {
           el.historical.paginationContainer.style.display = 'none';
         } else {
           el.historical.paginationContainer.style.display = 'flex';

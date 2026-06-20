@@ -7,6 +7,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Text, ActivityIndicator, Dimensions, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Colors } from '../constants/Colors';
 import { useAppStore } from '../state/AppStore';
 import { AppologyBrand } from './AppologyBrand';
@@ -17,6 +18,7 @@ const normalize = (size: number) => Math.round(size * scale);
 
 export function LogoutOverlay() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const router = useRouter();
 
   useEffect(() => {
     const performTransition = async () => {
@@ -29,6 +31,9 @@ export function LogoutOverlay() {
         try {
           // 2. Perform the actual logout clearance behind the black screen
           await useAppStore.getState().logout();
+          
+          // Trigger route change immediately so the auth screen mounts
+          router.replace('/auth');
           
           // Allow a brief moment for the router to update DOM and mount AuthScreen
           setTimeout(() => {

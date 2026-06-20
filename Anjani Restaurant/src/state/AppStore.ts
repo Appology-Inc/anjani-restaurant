@@ -204,6 +204,10 @@ interface AppState {
 
   // Previous Orders State
   previousOrders: PreviousOrder[];
+  hasMorePreviousOrders: boolean;
+  loadingPreviousOrders: boolean;
+  lastPreviousOrderDoc: any;
+  fetchPreviousOrders: (reset?: boolean) => Promise<void>;
   reorder: (items: OrderItem[]) => void;
 
 
@@ -304,11 +308,11 @@ const userCoords = { lat: 17.0850, lng: 82.1400 };
  */
 export const useAppStore = create<AppState>((set, get) => {
   let timerIds: { [orderId: string]: any } = {};
-  let trackingUnsubs: { [orderId: string]: Function } = {};
-  let cloudUnsub: any = null;
-  let menuUnsub: any = null;
-  let statusUnsub: any = null;
-  let paymentUnsub: any = null;
+  let trackingUnsubs: { [orderId: string]: () => void } = {};
+  let cloudUnsub: (() => void) | null = null;
+  let menuUnsub: (() => void) | null = null;
+  let statusUnsub: (() => void) | null = null;
+  let paymentUnsub: (() => void) | null = null;
   let lastStatusMap: { [orderId: string]: string } = {};
   // Remove actionInFlight to allow Firebase's local cache optimistic UI to work properly
 
@@ -321,15 +325,16 @@ export const useAppStore = create<AppState>((set, get) => {
           const currentUserUid = get().currentUser?.uid || auth?.currentUser?.uid;
           
           if (currentUserUid) {
+            get().fetchPreviousOrders(true).catch(console.warn);
+
             if (cloudUnsub) cloudUnsub();
             const ordersRef = collection(db, 'orders');
             const q = query(ordersRef, 
               where('customerUid', '==', currentUserUid),
-              where('status', 'in', ['PAYMENT_PENDING', 'PLACED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'])
+              where('isDismissed', '==', false)
             );
             cloudUnsub = onSnapshot(q, (snapshot: any) => {
               const ordersList: ActiveOrder[] = [];
-              const prevList: PreviousOrder[] = [];
               const chatsObj: { [orderId: string]: ChatMessage[] } = {};
 
               snapshot.forEach((doc: any) => {
@@ -339,24 +344,6 @@ export const useAppStore = create<AppState>((set, get) => {
                 if (data.messages) {
                   chatsObj[data.id] = data.messages;
                 }
-
-                if (data.status === 'DELIVERED' || data.status === 'CANCELLED') {
-                  if (data.customerUid === currentUserUid) {
-                    prevList.push({
-                      id: data.id,
-                      date: new Date(data.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                      timestamp: data.createdAt || Date.now(),
-                      items: data.items,
-                      totalAmount: data.totalAmount,
-                      status: data.status,
-                      paymentMethod: data.paymentMethod,
-                      utrNumber: data.utrNumber,
-                      cookingInstructions: data.cookingInstructions,
-                      rating: data.rating,
-                      reviewText: data.reviewText,
-                    });
-                  }
-                }
               });
               
               set({ systemOrders: ordersList });
@@ -364,11 +351,6 @@ export const useAppStore = create<AppState>((set, get) => {
               if (Object.keys(chatsObj).length > 0) {
                 set({ chatMessages: { ...get().chatMessages, ...chatsObj } });
               }
-
-              // Sort by newest first (descending)
-              prevList.sort((a, b) => (b.timestamp || new Date(b.date).getTime()) - (a.timestamp || new Date(a.date).getTime()));
-              set({ previousOrders: prevList });
-              AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(prevList)).catch(() => {});
               
               const currentActives = get().activeOrders || [];
               const newActives = ordersList.filter(o => {
@@ -1340,6 +1322,119 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     previousOrders: [],
+    hasMorePreviousOrders: false,
+    loadingPreviousOrders: false,
+    lastPreviousOrderDoc: null,
+    fetchPreviousOrders: async (reset = false) => {
+      if (!isFirebaseConfigured) return;
+      const currentUserUid = get().currentUser?.uid || auth?.currentUser?.uid;
+      if (!currentUserUid) return;
+
+      const isReset = reset || get().lastPreviousOrderDoc === null;
+      if (get().loadingPreviousOrders) return;
+      set({ loadingPreviousOrders: true });
+
+      try {
+        const { collection, query, where, orderBy, limit, getDocs, startAfter } = require('firebase/firestore');
+        const ordersRef = collection(db, 'orders');
+        const PAGE_SIZE = 5;
+        let q;
+        const startDoc = isReset ? null : get().lastPreviousOrderDoc;
+
+        try {
+          if (startDoc) {
+            q = query(
+              ordersRef,
+              where('customerUid', '==', currentUserUid),
+              where('status', 'in', ['DELIVERED', 'CANCELLED']),
+              orderBy('createdAt', 'desc'),
+              startAfter(startDoc),
+              limit(PAGE_SIZE)
+            );
+          } else {
+            q = query(
+              ordersRef,
+              where('customerUid', '==', currentUserUid),
+              where('status', 'in', ['DELIVERED', 'CANCELLED']),
+              orderBy('createdAt', 'desc'),
+              limit(PAGE_SIZE)
+            );
+          }
+        } catch (queryErr) {
+          console.warn('Error creating primary paginated query, using fallback:', queryErr);
+          if (startDoc) {
+            q = query(
+              ordersRef,
+              where('customerUid', '==', currentUserUid),
+              startAfter(startDoc),
+              limit(PAGE_SIZE)
+            );
+          } else {
+            q = query(
+              ordersRef,
+              where('customerUid', '==', currentUserUid),
+              limit(PAGE_SIZE)
+            );
+          }
+        }
+
+        let snapshot;
+        try {
+          snapshot = await getDocs(q);
+        } catch (fetchErr) {
+          console.warn('Failed fetching with primary/fallback query, attempting simple query:', fetchErr);
+          const simpleQ = query(
+            ordersRef,
+            where('customerUid', '==', currentUserUid),
+            limit(50)
+          );
+          snapshot = await getDocs(simpleQ);
+        }
+
+        const prevList: PreviousOrder[] = [];
+        snapshot.forEach((doc: any) => {
+          const data = doc.data() as ActiveOrder;
+          prevList.push({
+            id: data.id,
+            date: new Date(data.createdAt || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+            timestamp: data.createdAt || Date.now(),
+            items: data.items,
+            totalAmount: data.totalAmount,
+            status: data.status,
+            paymentMethod: data.paymentMethod,
+            utrNumber: data.utrNumber,
+            cookingInstructions: data.cookingInstructions,
+            rating: data.rating,
+            reviewText: data.reviewText,
+          });
+        });
+
+        prevList.sort((a, b) => b.timestamp - a.timestamp);
+
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
+        const currentList = isReset ? [] : get().previousOrders;
+        const updatedList = [...currentList, ...prevList];
+
+        const seen = new Set();
+        const deduplicatedList = updatedList.filter(o => {
+          if (seen.has(o.id)) return false;
+          seen.add(o.id);
+          return true;
+        });
+
+        set({
+          previousOrders: deduplicatedList,
+          lastPreviousOrderDoc: lastDoc,
+          hasMorePreviousOrders: snapshot.docs.length === PAGE_SIZE,
+          loadingPreviousOrders: false,
+        });
+
+        AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(deduplicatedList)).catch(() => {});
+      } catch (error) {
+        console.warn('Error fetching previous orders:', error);
+        set({ loadingPreviousOrders: false });
+      }
+    },
     reorder: (items) => {
       const currentMenu = get().menuItems;
       const newCart: { [itemId: string]: OrderItem } = {};

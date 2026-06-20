@@ -234,6 +234,9 @@ export default function ProfileScreen() {
     deleteSavedAddress, 
     selectSavedAddress, 
     previousOrders, 
+    hasMorePreviousOrders,
+    loadingPreviousOrders,
+    fetchPreviousOrders,
     activeOrders, 
     dismissOrder 
   } = useAppStore();
@@ -772,7 +775,25 @@ export default function ProfileScreen() {
             <Text style={styles.emptyTxt}>No orders yet — let's change that!</Text>
           </View>
         ) : (
-          previousOrders.map((order) => <OrderCard key={order.id} order={order} />)
+          <View>
+            {previousOrders.map((order) => <OrderCard key={order.id} order={order} />)}
+            {hasMorePreviousOrders && (
+              <TouchableOpacity 
+                style={styles.loadMoreBtn} 
+                onPress={() => fetchPreviousOrders(false)}
+                disabled={loadingPreviousOrders}
+              >
+                {loadingPreviousOrders ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <>
+                    <Ionicons name="arrow-down-circle-outline" size={20} color={Colors.primary} />
+                    <Text style={styles.loadMoreTxt}>Load More</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {/* Logout button was moved to header */}
@@ -1399,6 +1420,23 @@ const styles = StyleSheet.create({
   reorderTxt: {
     fontSize: 14,
     fontWeight: '800',
+    color: Colors.primary,
+  },
+  loadMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginVertical: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  loadMoreTxt: {
+    fontSize: 14,
+    fontWeight: '700',
     color: Colors.primary,
   },
 
