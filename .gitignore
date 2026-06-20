@@ -42,3 +42,10 @@ backup/
 *.csv
 *.txt
 anjani-restaurant-firebase-adminsdk-fbsvc-fe6d70a99f.json
+
+# Secrets
+**/.env
+**/.env.*
+**/google-services.json
+**/GoogleService-Info.plist
+
