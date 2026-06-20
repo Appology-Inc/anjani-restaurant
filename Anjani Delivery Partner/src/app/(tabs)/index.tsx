@@ -90,7 +90,7 @@ export default function RiderDashboard() {
   const flatListRefs = useRef<{ [orderId: string]: FlatList | null }>({});
 
   const currentUser = useAppStore(state => state.currentUser);
-  const logout = useAppStore(state => state.logout);
+  const setLoggingOut = useAppStore(state => state.setLoggingOut);
   const systemOrders = useAppStore(state => state.systemOrders);
   const updateOrderStatus = useAppStore(state => state.updateOrderStatus);
   const acceptDeliveryTask = useAppStore(state => state.acceptDeliveryTask);
@@ -505,9 +505,8 @@ export default function RiderDashboard() {
             <TouchableOpacity 
               style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', alignItems: 'center', justifyContent: 'center' }} 
               onPress={() => {
-                const performLogout = async () => {
-                  await logout();
-                  router.replace('/auth');
+                const performLogout = () => {
+                  setLoggingOut(true);
                 };
 
                 Alert.alert('Logout', `Are you sure you want to log out from ${currentUser?.name || 'your'} session?`, [

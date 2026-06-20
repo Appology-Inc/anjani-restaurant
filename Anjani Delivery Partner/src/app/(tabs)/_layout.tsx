@@ -13,7 +13,7 @@ export default function TabLayout() {
   const isLargeScreen = width >= 768;
   const router = useRouter();
   const pathname = usePathname();
-  const logout = useAppStore(state => state.logout);
+  const setLoggingOut = useAppStore(state => state.setLoggingOut);
 
   React.useEffect(() => {
     if (Platform.OS === 'web') {
@@ -111,9 +111,8 @@ export default function TabLayout() {
             <TouchableOpacity 
               style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14 }}
               onPress={() => {
-                const performLogout = async () => {
-                  await logout();
-                  router.replace('/auth');
+                const performLogout = () => {
+                  setLoggingOut(true);
                 };
 
                 Alert.alert('Logout', `Are you sure you want to log out?`, [

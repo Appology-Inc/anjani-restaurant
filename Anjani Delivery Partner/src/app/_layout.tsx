@@ -9,6 +9,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
 import CustomAlertProvider from '../components/CustomAlertProvider';
 import InstallPromptOverlay from '../components/InstallPromptOverlay';
+import { useAppStore } from '../state/AppStore';
+import { LogoutOverlay } from '../components/LogoutOverlay';
 
 // Keep the native splash screen visible until our custom boot screen mounts
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -22,6 +24,8 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
 }
 
 export default function RootLayout() {
+  const { isLoggingOut } = useAppStore();
+
   React.useEffect(() => {
     registerForPushNotificationsAsync();
     if (Platform.OS === 'web') {
@@ -65,6 +69,7 @@ export default function RootLayout() {
         <StatusBar style="light" backgroundColor="transparent" translucent={true} />
         <Slot />
         <InstallPromptOverlay />
+        {isLoggingOut && <LogoutOverlay />}
       </SafeAreaProvider>
     </CustomAlertProvider>
   );

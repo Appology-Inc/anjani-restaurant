@@ -106,6 +106,8 @@ export interface ChatMessage {
 interface AppState {
   // Session State
   currentUser: CustomerProfile | null;
+  isLoggingOut: boolean;
+  setLoggingOut: (val: boolean) => void;
   login: (profile: CustomerProfile) => Promise<void>;
   logout: () => Promise<void>;
   
@@ -411,6 +413,8 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     currentUser: null,
+    isLoggingOut: false,
+    setLoggingOut: (val) => set({ isLoggingOut: val }),
     login: async (profile) => {
       // Backwards-compatibility safety
       if (!profile.addresses) profile.addresses = [];

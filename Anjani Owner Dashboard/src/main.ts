@@ -198,6 +198,7 @@ const el = {
   confirmModal: document.getElementById('confirm-modal')!,
   loginOverlay: document.getElementById('login-overlay')!,
   logoutBtn: document.getElementById('logout-btn')!,
+  logoutScreen: document.getElementById('logout-screen')!,
   loginBtn: document.getElementById('login-btn')!,
   loginEmail: document.getElementById('login-email') as HTMLInputElement,
   loginPassword: document.getElementById('login-password') as HTMLInputElement,
@@ -1393,7 +1394,30 @@ el.loginBtn.addEventListener('click', async () => {
 el.logoutBtn.addEventListener('click', async () => {
   if (await (window as any).showConfirm("Are you sure you want to log out?", true)) {
     localStorage.removeItem('autoLogin'); // Prevent auto-login loop on manual logout
-    await signOut(auth);
+    
+    // Show and fade in the logout screen overlay
+    el.logoutScreen.style.display = 'flex';
+    setTimeout(() => {
+      el.logoutScreen.classList.remove('fade-out');
+    }, 20);
+
+    // Wait 500ms for overlay to become fully opaque
+    setTimeout(async () => {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error('Logout error:', err);
+      }
+      
+      // Wait 600ms for the page layout changes to settle behind the black overlay
+      setTimeout(() => {
+        el.logoutScreen.classList.add('fade-out');
+        // Wait 800ms for the fade-out transition to complete, then hide the overlay
+        setTimeout(() => {
+          el.logoutScreen.style.display = 'none';
+        }, 800);
+      }, 600);
+    }, 500);
   }
 });
 
