@@ -14,32 +14,7 @@ import { useEffect } from 'react';
 import { useAppStore } from '../state/AppStore';
 import { LogBox, Alert, Platform } from 'react-native';
 
-if (Platform.OS === 'web') {
-  Alert.alert = (title, message, buttons) => {
-    const text = message ? `${title}\n\n${message}` : title;
-    if (buttons && buttons.length > 0) {
-      const destructiveBtn = buttons.find(b => b.style === 'destructive' || b.text?.toLowerCase() === 'delete' || b.text?.toLowerCase() === 'log out');
-      const cancelBtn = buttons.find(b => b.style === 'cancel' || b.text?.toLowerCase() === 'cancel');
-      if (destructiveBtn || cancelBtn) {
-        const confirmed = window.confirm(text);
-        if (confirmed && destructiveBtn && destructiveBtn.onPress) {
-          destructiveBtn.onPress();
-        } else if (!confirmed && cancelBtn && cancelBtn.onPress) {
-          cancelBtn.onPress();
-        } else if (confirmed && !destructiveBtn) {
-          const actionBtn = buttons.find(b => b !== cancelBtn);
-          if (actionBtn && actionBtn.onPress) actionBtn.onPress();
-        }
-      } else {
-        window.alert(text);
-        const firstBtn = buttons[0];
-        if (firstBtn && firstBtn.onPress) firstBtn.onPress();
-      }
-    } else {
-      window.alert(text);
-    }
-  };
-}
+// Removed static window.confirm Alert.alert override in favor of CustomAlertProvider
 
 import { registerForPushNotificationsAsync } from '../utils/notifications';
 import { useFonts } from 'expo-font';
@@ -56,6 +31,7 @@ import React from 'react';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { NetworkStatus } from '../components/NetworkStatus';
 import InstallPromptOverlay from '../components/InstallPromptOverlay';
+import CustomAlertProvider from '../components/CustomAlertProvider';
 
 /**
  * RootLayout Component
@@ -99,39 +75,41 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.dark }}>
-        <SafeAreaProvider>
-          <StatusBar style="light" backgroundColor={Colors.dark} />
-          
-          <NetworkStatus />
-          <InstallPromptOverlay />
+      <CustomAlertProvider>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.dark }}>
+          <SafeAreaProvider>
+            <StatusBar style="light" backgroundColor={Colors.dark} />
+            
+            <NetworkStatus />
+            <InstallPromptOverlay />
 
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: Colors.surface },
-              animation: 'fade',
-            }}
-          >
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="auth" options={{ headerShown: false, animation: 'fade' }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen 
-              name="checkout" 
-              options={{ 
-                presentation: 'modal', 
-                animation: 'slide_from_bottom',
-              }} 
-            />
-            <Stack.Screen 
-              name="tracking" 
-              options={{ 
-                animation: 'slide_from_right',
-              }} 
-            />
-          </Stack>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: Colors.surface },
+                animation: 'fade',
+              }}
+            >
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="auth" options={{ headerShown: false, animation: 'fade' }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen 
+                name="checkout" 
+                options={{ 
+                  presentation: 'modal', 
+                  animation: 'slide_from_bottom',
+                }} 
+              />
+              <Stack.Screen 
+                name="tracking" 
+                options={{ 
+                  animation: 'slide_from_right',
+                }} 
+              />
+            </Stack>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </CustomAlertProvider>
     </ErrorBoundary>
   );
 }
