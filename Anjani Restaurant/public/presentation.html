@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anjani Ecosystem Presentation</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --text: #ffffff;
+      --accent: #FF6B00;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    #slides-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 0.8s ease-in-out;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: all;
+      z-index: 10;
+    }
+
+    /* Fixed size container that gets scaled by JS on desktop */
+    .slide-content {
+      width: 1600px;
+      height: 900px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transform-origin: center center;
+    }
+
+    .split-layout {
+      flex-direction: row !important;
+      justify-content: space-between !important;
+      align-items: center;
+      padding: 0 100px;
+    }
+
+    .text-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
+      padding-right: 80px;
+      z-index: 2;
+    }
+
+    .device-column {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      z-index: 2;
+    }
+
+    h1 {
+      font-size: 80px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 30px;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    .text-column h1 {
+      text-align: left;
+      line-height: 1.1;
+    }
+
+    h2 {
+      font-size: 32px;
+      font-weight: 400;
+      color: #ccc;
+      text-align: center;
+      max-width: 900px;
+      line-height: 1.5;
+      margin-bottom: 60px;
+    }
+
+    .text-column h2 {
+      text-align: left;
+      margin-bottom: 40px;
+    }
+
+    ul.bullets {
+      list-style-type: none;
+    }
+
+    ul.bullets li {
+      font-size: 32px;
+      color: #fff;
+      margin-bottom: 15px;
+      position: relative;
+      padding-left: 30px;
+    }
+
+    ul.bullets li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: #fff;
+    }
+
+    /* Device Mockups (Pure CSS) */
+    .devices-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      perspective: 1200px;
+    }
+
+    .device {
+      position: relative;
+      background: #111;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.6), inset 0 0 0 2px #333;
+      overflow: hidden;
+      transform: scale(0.9); /* scale down slightly to fit well in the 900px height container */
+    }
+
+    .device.phone {
+      width: 375px;  /* Standard mobile width */
+      height: 812px; /* Standard mobile height */
+      border: 12px solid #222;
+      border-radius: 40px;
+    }
+
+    .device.tablet {
+      width: 1024px; /* Standard tablet width */
+      height: 768px; /* Standard tablet height */
+      border: 16px solid #222;
+      border-radius: 24px;
+      transform: scale(0.85); /* tablet needs a bit more scaling down to fit */
+    }
+
+    .device iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+      pointer-events: none;
+    }
+
+    .slide.active .device iframe {
+      pointer-events: all;
+    }
+
+    /* Controls */
+    .controls {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      display: flex;
+      gap: 15px;
+      z-index: 100;
+    }
+
+    .btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      width: 50px;
+      height: 50px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    
+    .glow {
+      position: absolute;
+      width: 1000px;
+      height: 1000px;
+      background: radial-gradient(circle, rgba(255,107,0,0.15) 0%, rgba(0,0,0,0) 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1;
+      pointer-events: none;
+    }
+    
+    .wave-bg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      background-image: url('bg_title_1781960426283.png');
+      background-size: cover;
+      background-position: center;
+      z-index: 0;
+      opacity: 0.5; /* Dimmed slightly so text pops */
+    }
+
+    /* ─── RESPONSIVE MOBILE MEDIA QUERIES ─── */
+    @media (max-width: 1024px) or (orientation: portrait) {
+      body, html {
+        overflow: hidden;
+      }
+      
+      .slide-content {
+        width: 100% !important;
+        height: 100% !important;
+        padding: 60px 20px 80px 20px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        overflow-y: auto !important;
+      }
+
+      .split-layout {
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        padding: 40px 10px 80px 10px !important;
+        gap: 25px !important;
+      }
+
+      .text-column {
+        width: 100% !important;
+        padding-right: 0 !important;
+        text-align: center !important;
+        align-items: center !important;
+        margin-bottom: 10px !important;
+        flex: none !important;
+      }
+
+      .text-column h1 {
+        font-size: 34px !important;
+        text-align: center !important;
+        margin-bottom: 12px !important;
+      }
+
+      .text-column h2 {
+        font-size: 15px !important;
+        text-align: center !important;
+        margin-bottom: 15px !important;
+        max-width: 100% !important;
+      }
+
+      ul.bullets {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 6px !important;
+        width: 100% !important;
+      }
+
+      ul.bullets li {
+        font-size: 15px !important;
+        margin-bottom: 0 !important;
+        padding-left: 20px !important;
+        text-align: left !important;
+      }
+
+      .device-column {
+        width: 100% !important;
+        justify-content: center !important;
+        align-items: center !important;
+        flex: 1 !important;
+        margin-bottom: 10px !important;
+      }
+
+      /* Scale mockups to fit perfectly on mobile screens */
+      .device.phone {
+        width: 240px !important;
+        height: 480px !important;
+        border-width: 8px !important;
+        border-radius: 24px !important;
+        transform: none !important;
+      }
+
+      .device.tablet {
+        width: 100% !important;
+        max-width: 480px !important;
+        height: 320px !important;
+        border-width: 10px !important;
+        border-radius: 16px !important;
+        transform: none !important;
+      }
+
+      /* Slide 1 Custom Mobile Sizing */
+      #slide1-title {
+        font-size: 28px !important;
+        margin: 0 auto 10px auto !important;
+        line-height: 1.2 !important;
+      }
+
+      #slide1-subtitle {
+        font-size: 14px !important;
+        margin: 0 auto 15px auto !important;
+        line-height: 1.4 !important;
+      }
+
+      .slide1-devices-row {
+        transform: none !important;
+        margin-top: 10px !important;
+        flex-direction: column !important;
+        gap: 15px !important;
+        align-items: center !important;
+        width: 100% !important;
+      }
+
+      .slide1-devices-row .device.phone {
+        width: 160px !important;
+        height: 320px !important;
+        border-width: 6px !important;
+        border-radius: 16px !important;
+        transform: none !important;
+      }
+
+      .slide1-devices-row .device.tablet {
+        width: 280px !important;
+        height: 190px !important;
+        border-width: 8px !important;
+        border-radius: 12px !important;
+        transform: none !important;
+        order: -1 !important; /* Put tablet on top of phone mockups vertically */
+      }
+
+      /* Slide 5 Custom Mobile Sizing */
+      .slide5-title {
+        font-size: 34px !important;
+        margin-bottom: 15px !important;
+      }
+
+      .slide5-subtitle1 {
+        font-size: 16px !important;
+        margin-bottom: 25px !important;
+      }
+
+      .slide5-subtitle2 {
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+      }
+
+      /* Controls positioning for mobile screens */
+      .controls {
+        bottom: 15px !important;
+        right: 15px !important;
+        gap: 10px !important;
+      }
+
+      .btn {
+        width: 44px !important;
+        height: 44px !important;
+        font-size: 16px !important;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="slides-container">
+    
+    <!-- Slide 1 -->
+    <div class="slide active">
+      <div class="wave-bg"></div>
+      <div class="slide-content" style="justify-content: flex-start; padding-top: 60px;">
+        <div class="glow" style="top: 30%;"></div>
+        <div style="text-align: center; width: 100%; z-index: 2; margin-bottom: 20px;">
+            <h1 id="slide1-title" style="text-transform: uppercase; text-align: center; max-width: 1200px; margin: 0 auto 20px auto; font-size: 80px;">ANJANI RESTAURANT ECOSYSTEM</h1>
+            <h2 id="slide1-subtitle" style="text-align: center; color: #fff; max-width: 800px; margin: 0 auto; font-size: 32px;">A complete, zero-commission delivery infrastructure built from scratch.</h2>
+        </div>
+        
+        <div class="devices-row slide1-devices-row" style="transform: scale(0.65); transform-origin: top center; margin-top: -20px;">
+          <div class="device phone" style="transform: rotateY(15deg) translateZ(-50px);">
+            <iframe src="https://anjanirestaurant.web.app" scrolling="no"></iframe>
+          </div>
+          <div class="device tablet" style="z-index: 2; box-shadow: 0 40px 100px rgba(0,0,0,0.8), inset 0 0 0 2px #333;">
+            <iframe src="https://anjaniowner.web.app"></iframe>
+          </div>
+          <div class="device phone" style="transform: rotateY(-15deg) translateZ(-50px);">
+            <iframe src="https://anjanideliverypartner.web.app" scrolling="no"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 2 -->
+    <div class="slide">
+      <div class="slide-content split-layout">
+        <div class="glow" style="left: 0%;"></div>
+        
+        <div class="text-column">
+            <h1>1. Customer<br>App</h1>
+            <h2>A beautiful, intuitive ordering experience designed for speed and conversion.</h2>
+            <ul class="bullets">
+                <li>Live menu fetching</li>
+                <li>Secure cart management</li>
+                <li>Seamless UI animations</li>
+            </ul>
+        </div>
+        
+        <div class="device-column">
+            <div class="device phone">
+              <iframe src="https://anjanirestaurant.web.app"></iframe>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 3 -->
+    <div class="slide">
+      <div class="slide-content split-layout">
+        <div class="glow" style="left: 0%;"></div>
+        
+        <div class="text-column">
+            <h1>2. Owner<br>Dashboard</h1>
+            <h2>Real-time insights into active orders, revenue, and table status directly from the kitchen counter.</h2>
+            <ul class="bullets">
+                <li>Live order tracking</li>
+                <li>Real-time analytics</li>
+                <li>Instant menu updates</li>
+            </ul>
+        </div>
+        
+        <div class="device-column">
+            <div class="device tablet">
+              <iframe src="https://anjaniowner.web.app"></iframe>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 4 -->
+    <div class="slide">
+      <div class="slide-content split-layout">
+        <div class="glow" style="left: 0%;"></div>
+        
+        <div class="text-column">
+            <h1>3. Delivery<br>Partner App</h1>
+            <h2>Connecting the kitchen to the customer with precision. Built for the road.</h2>
+            <ul class="bullets">
+                <li>Live map routing</li>
+                <li>Secure order acceptance</li>
+                <li>Earnings tracking</li>
+            </ul>
+        </div>
+        
+        <div class="device-column">
+            <div class="device phone">
+              <iframe src="https://anjanideliverypartner.web.app"></iframe>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 5 -->
+    <div class="slide">
+      <div class="wave-bg"></div>
+      <div class="slide-content">
+        <div style="z-index: 2; text-align: center;">
+          <h1 class="slide5-title" style="font-size: 96px;">Building Tech For Good.</h1>
+          <h2 class="slide5-subtitle1" style="color: #fff; margin-bottom: 40px; font-size: 36px; max-width: 1200px; margin-left: auto; margin-right: auto;">Powered by React Native (Expo), Firebase, and Web.</h2>
+          <h2 class="slide5-subtitle2" style="color: #fff; max-width: 1200px; margin-left: auto; margin-right: auto; font-size: 24px;">We are taking this open-source to empower independent restaurants everywhere. Join the project on GitHub and let's collaborate!</h2>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="controls">
+    <button class="btn" onclick="prevSlide()">❮</button>
+    <button class="btn" onclick="nextSlide()">❯</button>
+  </div>
+
+  <script>
+    // --- Scale Logic for Desktop ---
+    function scaleSlides() {
+      const targetWidth = 1600;
+      const targetHeight = 900;
+      
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      
+      const isMobile = windowWidth < 1024 || windowHeight > windowWidth;
+      const slideContents = document.querySelectorAll('.slide-content');
+      
+      if (isMobile) {
+        // Disable JS scaling on mobile/portrait so CSS Media Queries take full control
+        slideContents.forEach(content => {
+          content.style.transform = "none";
+        });
+      } else {
+        const scaleX = windowWidth / targetWidth;
+        const scaleY = windowHeight / targetHeight;
+        const scale = Math.min(scaleX, scaleY) * 0.95; // 5% padding so nothing touches edges
+        
+        slideContents.forEach(content => {
+          content.style.transform = "scale(" + scale + ")";
+        });
+      }
+    }
+
+    window.addEventListener('resize', scaleSlides);
+    scaleSlides();
+
+
+    // --- Slide Navigation Logic ---
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+
+    function showSlide(index) {
+      slides.forEach(s => s.classList.remove('active'));
+      if (index >= slides.length) currentSlide = 0;
+      if (index < 0) currentSlide = slides.length - 1;
+      slides[currentSlide].classList.add('active');
+    }
+
+    function nextSlide() {
+      currentSlide++;
+      showSlide(currentSlide);
+    }
+
+    function prevSlide() {
+      currentSlide--;
+      showSlide(currentSlide);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      // Don't trigger if user is typing in an input inside the iframe
+      if (document.activeElement.tagName === 'IFRAME') return;
+      if (e.key === 'ArrowRight') nextSlide();
+      if (e.key === 'ArrowLeft') prevSlide();
+    });
+
+
+    // --- Touch Swipe Navigation Support for Mobile Browsers ---
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    const container = document.getElementById('slides-container');
+    container.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    
+    container.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+    
+    function handleSwipe() {
+      const swipeThreshold = 50; // Minimum distance in pixels to trigger navigation
+      if (touchEndX < touchStartX - swipeThreshold) {
+        nextSlide(); // Swipe Left -> Show Next Slide
+      }
+      if (touchEndX > touchStartX + swipeThreshold) {
+        prevSlide(); // Swipe Right -> Show Prev Slide
+      }
+    }
+  </script>
+</body>
+</html>
