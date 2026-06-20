@@ -66,21 +66,23 @@ export default function TabLayout() {
             <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,107,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,0,0.3)', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="bicycle" size={24} color={Colors.primary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text 
-                style={[{ fontSize: 18, fontWeight: '800', color: '#F5ECD7', letterSpacing: 0.5 }, Platform.OS === 'web' && { fontFamily: 'Outfit' }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {Platform.OS === 'web' ? (
-                  React.createElement('span', {
-                    className: 'brand-name',
-                    style: { fontSize: '18px', fontWeight: '800', letterSpacing: '0.5px' }
-                  }, "Anjani Restaurant")
-                ) : (
-                  "Anjani Restaurant"
-                )}
-              </Text>
+            <View style={{ flex: 1, alignItems: 'flex-start' }}>
+              {Platform.OS === 'web' ? (
+                React.createElement(
+                  'span',
+                  { className: 'appology-glow-wrapper', style: { fontStyle: 'italic', whiteSpace: 'nowrap', alignSelf: 'flex-start' } },
+                  React.createElement('span', { className: 'appology-gold-text', style: { fontSize: '18px', fontWeight: '900', paddingRight: '4px', letterSpacing: '0.5px' } }, 'Anjani'),
+                  React.createElement('span', { className: 'appology-gold-text', style: { fontSize: '18px', fontWeight: '900', paddingRight: '6px', letterSpacing: '0.5px' } }, 'Restaurant')
+                )
+              ) : (
+                <Text 
+                  style={[{ fontSize: 18, fontWeight: '800', color: '#F5ECD7', letterSpacing: 0.5 }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  Anjani Restaurant
+                </Text>
+              )}
               <Text style={{ fontSize: 10, color: Colors.primary, fontWeight: '600', letterSpacing: 1, marginTop: 2 }}>DELIVERY PARTNER</Text>
             </View>
           </TouchableOpacity>

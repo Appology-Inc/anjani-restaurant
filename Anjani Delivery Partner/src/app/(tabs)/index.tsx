@@ -477,21 +477,23 @@ export default function RiderDashboard() {
             }}
           >
             <View style={ss.headerIcon}><Ionicons name="bicycle" size={18} color={Colors.primary} /></View>
-            <View style={{ flex: 1 }}>
-              <Text 
-                style={[ss.headerTitle, { fontSize: 16 }]} 
-                numberOfLines={1} 
-                adjustsFontSizeToFit
-              >
-                {Platform.OS === 'web' ? (
-                  React.createElement('span', {
-                    className: 'brand-name',
-                    style: { fontSize: '16px', fontWeight: '900' }
-                  }, "Anjani Restaurant")
-                ) : (
-                  "Anjani Restaurant"
-                )}
-              </Text>
+            <View style={{ flex: 1, alignItems: 'flex-start' }}>
+              {Platform.OS === 'web' ? (
+                React.createElement(
+                  'span',
+                  { className: 'appology-glow-wrapper', style: { fontStyle: 'italic', whiteSpace: 'nowrap', alignSelf: 'flex-start' } },
+                  React.createElement('span', { className: 'appology-gold-text', style: { fontSize: '18px', fontWeight: '900', paddingRight: '4px', letterSpacing: '0.5px' } }, 'Anjani'),
+                  React.createElement('span', { className: 'appology-gold-text', style: { fontSize: '18px', fontWeight: '900', paddingRight: '6px', letterSpacing: '0.5px' } }, 'Restaurant')
+                )
+              ) : (
+                <Text 
+                  style={[ss.headerTitle, { fontSize: 16 }]} 
+                  numberOfLines={1} 
+                  adjustsFontSizeToFit
+                >
+                  Anjani Restaurant
+                </Text>
+              )}
               <Text style={ss.headerSub} numberOfLines={1} adjustsFontSizeToFit>Delivery Partner Dashboard</Text>
             </View>
           </TouchableOpacity>
