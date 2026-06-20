@@ -1461,7 +1461,8 @@ onAuthStateChanged(auth, (user) => {
         setTimeout(() => el.loginBtn.click(), 100);
       }
     } else {
-      el.loginPassword.value = '';
+      el.loginEmail.value = 'owner@anjani.com';
+      el.loginPassword.value = 'owner123';
     }
     
     // Clear state

@@ -30,8 +30,8 @@ export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   
   const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('rider@anjani.com');
+  const [password, setPassword] = useState('rider123');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
