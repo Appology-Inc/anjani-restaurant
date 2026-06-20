@@ -156,6 +156,8 @@ interface AppState {
   // Session State
   isSessionLoaded: boolean;
   currentUser: CustomerProfile | null;
+  isLoggingOut: boolean;
+  setLoggingOut: (val: boolean) => void;
   login: (profile: CustomerProfile) => Promise<void>;
   logout: () => Promise<void>;
   
@@ -580,6 +582,8 @@ export const useAppStore = create<AppState>((set, get) => {
 
     isSessionLoaded: false,
     currentUser: null,
+    isLoggingOut: false,
+    setLoggingOut: (val) => set({ isLoggingOut: val }),
     login: async (profile) => {
       // Backwards-compatibility safety
       if (!profile.addresses) profile.addresses = [];

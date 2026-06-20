@@ -32,6 +32,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { NetworkStatus } from '../components/NetworkStatus';
 import InstallPromptOverlay from '../components/InstallPromptOverlay';
 import CustomAlertProvider from '../components/CustomAlertProvider';
+import { LogoutOverlay } from '../components/LogoutOverlay';
 
 /**
  * RootLayout Component
@@ -43,7 +44,7 @@ import CustomAlertProvider from '../components/CustomAlertProvider';
  */
 export default function RootLayout() {
   
-  const { loadSavedSession } = useAppStore();
+  const { loadSavedSession, isLoggingOut } = useAppStore();
 
   // Explicitly preload Ionicons font for web reliability
   const [fontsLoaded] = useFonts({
@@ -82,6 +83,8 @@ export default function RootLayout() {
             
             <NetworkStatus />
             <InstallPromptOverlay />
+            
+            {isLoggingOut && <LogoutOverlay />}
 
             <Stack
               screenOptions={{

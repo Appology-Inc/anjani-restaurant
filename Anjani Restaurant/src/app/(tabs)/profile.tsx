@@ -228,6 +228,7 @@ export default function ProfileScreen() {
     currentUser, 
     login, 
     logout, 
+    setLoggingOut,
     addSavedAddress, 
     updateAddress,
     deleteSavedAddress, 
@@ -658,9 +659,8 @@ export default function ProfileScreen() {
                   {
                     text: 'Log Out',
                     style: 'destructive',
-                    onPress: async () => {
-                      await logout();
-                      router.replace('/auth');
+                    onPress: () => {
+                      setLoggingOut(true);
                     },
                   },
                 ]);
