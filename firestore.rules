@@ -67,7 +67,28 @@ service cloud.firestore {
         isOwner() ||
         isRider()
       );
-      allow update: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        isOwner() || 
+        isRider() || 
+        (
+          resource.data.customerUid == request.auth.uid 
+          /* 
+          // ⚠️ TEMPORARILY COMMENTED OUT UNTIL BLAZE PLAN IS ACTIVATED ⚠️
+          // Once you upgrade to Blaze and deploy Cloud Functions, UNCOMMENT THIS to make your database hack-proof.
+          &&
+          (
+             // Allow cancelling an order
+             (request.resource.data.status == 'CANCELLED' && resource.data.status in ['PAYMENT_PENDING', 'PLACED', 'ACCEPTED'])
+             ||
+             // Prevent customer from upgrading status to PLACED or PAID to bypass payment gateway
+             (
+               request.resource.data.status == resource.data.status &&
+               request.resource.data.paymentStatus == resource.data.paymentStatus
+             )
+          )
+          */
+        )
+      );
       allow delete: if isOwner();
     }
     

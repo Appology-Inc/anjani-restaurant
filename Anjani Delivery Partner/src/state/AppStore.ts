@@ -227,6 +227,18 @@ const userCoords = { lat: 17.0850, lng: 82.1400 };
 export const useAppStore = create<AppState>((set, get) => {
   let timerId: any = null;
 
+  // Load cached systemOrders instantly
+  AsyncStorage.getItem('anjani_rider_system_orders_cache').then((data) => {
+    if (data) {
+      try {
+        const cachedOrders = JSON.parse(data);
+        if (useAppStore.getState().systemOrders.length === 0) {
+          useAppStore.setState({ systemOrders: cachedOrders });
+        }
+      } catch (e) {}
+    }
+  });
+
   /**
    * Simulates the lifecycle of an order from PLACED to DELIVERED.
    * Gradually interpolates rider coordinates towards the customer location.
@@ -314,6 +326,7 @@ export const useAppStore = create<AppState>((set, get) => {
         }
 
         set({ systemOrders: ordersList });
+        AsyncStorage.setItem('anjani_rider_system_orders_cache', JSON.stringify(ordersList)).catch(() => {});
         
         const currentActive = get().activeOrder;
         if (currentActive) {

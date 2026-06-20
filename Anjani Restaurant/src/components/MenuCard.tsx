@@ -57,7 +57,6 @@ export const MenuCard = React.memo(function MenuCard({ item, cartItem, onAdd, on
     onRemove(item);
   };
 
-  const isBestseller = item.rating > 4.5;
   const hasImage = !!item.imageUrl;
 
   return (
@@ -73,22 +72,12 @@ export const MenuCard = React.memo(function MenuCard({ item, cartItem, onAdd, on
             <View style={[styles.vegBadge, { borderColor: item.isVeg ? Colors.green : Colors.red }]}>
               <View style={[styles.vegDot, { backgroundColor: item.isVeg ? Colors.green : Colors.red }]} />
             </View>
-            {isBestseller && (
-              <View style={styles.bestsellerBadge}>
-                <Ionicons name="star" size={10} color={Colors.gold} style={{ marginRight: 2 }} />
-                <Text style={styles.bestsellerText}>Bestseller</Text>
-              </View>
-            )}
           </View>
           
           <Text style={styles.name}>{item.name}</Text>
           
           <View style={styles.priceRatingRow}>
             <Text style={styles.price}>₹{item.price}</Text>
-            <View style={styles.ratingRowInline}>
-              <Ionicons name="star" size={12} color={Colors.gold} />
-              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-            </View>
           </View>
 
           {!!item.description && (

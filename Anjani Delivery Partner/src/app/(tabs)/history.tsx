@@ -17,7 +17,11 @@ const normalize = (size: number) => {
 export default function HistoryTab() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const isTablet = width >= 768 && width < 1024;
+  const isDesktop = width >= 1024;
   const isLargeScreen = width >= 768;
+  const columnWidth = isDesktop ? '33.33%' : isTablet ? '50%' : '100%';
+
   const systemOrders = useAppStore(state => state.systemOrders);
   const currentUser = useAppStore(state => state.currentUser);
 
@@ -111,7 +115,7 @@ export default function HistoryTab() {
           </View>
         ) : (
           deliveredToday.map((item, index) => (
-            <View key={item?.id || index.toString()} style={[isLargeScreen && { width: '33.33%', paddingHorizontal: 8, marginBottom: 8 }]}>
+            <View key={item?.id || index.toString()} style={[isLargeScreen && { width: columnWidth as any, paddingHorizontal: 8, marginBottom: 8 }]}>
               {renderOrder({ item, index })}
             </View>
           ))
@@ -199,6 +203,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: Colors.border,
+    flex: 1,
   },
   cardHeader: {
     flexDirection: 'row',

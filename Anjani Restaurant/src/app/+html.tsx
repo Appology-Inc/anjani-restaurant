@@ -30,6 +30,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
 
         {/* Pre-load icon fonts at the HTML level before JS hydration */}
         <style dangerouslySetInnerHTML={{ __html: `

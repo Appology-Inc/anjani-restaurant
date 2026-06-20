@@ -8,6 +8,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { db, functions } from '../config/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { Colors } from '../constants/Colors';
 import { useAppStore } from '../state/AppStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -178,9 +180,60 @@ export default function CheckoutScreen() {
           throw new Error('Failed to create order on database.');
         }
 
-        // We are bypassing the Cloud Function here because the user's Firebase project is on the Free tier and cannot deploy functions.
-        // For a production app without a backend, we use Razorpay's orderless integration (insecure but works for demo/free).
+        // --- SECURE BACKEND INTEGRATION (READY FOR BLAZE) ---
+        // ⚠️ UNCOMMENT THIS BLOCK ONCE BLAZE IS ACTIVATED ⚠️
+        /*
+        const createOrderFn = httpsCallable(functions, 'createRazorpayOrder');
+        const orderRes = await createOrderFn({ 
+          amountInRupees: grandTotal, 
+          receiptId: orderId 
+        });
+        const rzpOrderData = orderRes.data as any;
 
+        const options = {
+          key: 'rzp_test_T3DIONNmFaZFaU',
+          amount: rzpOrderData.amount, // from backend
+          currency: rzpOrderData.currency, // from backend
+          name: 'Anjani Restaurant',
+          description: 'Delicious Food Delivery Checkout',
+          image: 'https://i.imgur.com/3g7nmJC.png',
+          order_id: rzpOrderData.orderId, // Secure backend order ID!
+          prefill: {
+            name: currentUser.name || 'Customer',
+            email: currentUser.email || 'customer@example.com',
+            contact: currentUser.phone || '9999999999'
+          },
+          theme: { color: Colors.primary },
+          handler: async function (response: any) {
+            try {
+              setIsProcessing(true);
+              
+              // Secure Verification: Pass response to Cloud Function to verify cryptographic signature
+              const verifyFn = httpsCallable(functions, 'verifyRazorpayPayment');
+              await verifyFn({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                firestore_order_id: orderId
+              });
+
+              // If the function didn't throw an error, it succeeded and the database is updated!
+              isOrderPlaced.current = true;
+              await confirmOrderPayment(orderId, response.razorpay_payment_id);
+              router.replace('/tracking');
+            } catch (verifyError: any) {
+              console.error('Payment Verification Failure:', verifyError);
+              Alert.alert('Payment Verification Failed', 'We could not securely verify your payment.');
+              await cancelOrderPayment(orderId);
+            } finally {
+              setIsProcessing(false);
+            }
+          }
+        };
+        */
+        // ----------------------------------------------------
+
+        // --- INSECURE FALLBACK (ACTIVE UNTIL BLAZE IS READY) ---
         if (Platform.OS === 'web') {
           const loaded = await loadRazorpayScript();
           if (!loaded) {
@@ -273,9 +326,10 @@ export default function CheckoutScreen() {
             setIsProcessing(false);
           });
         }
+        // ----------------------------------------------------
 
       } catch (err: any) {
-        console.error('Error initiating Razorpay checkout:', err);
+        console.error('Error initiating secure Razorpay checkout:', err);
         Alert.alert('Payment Error', err.message || 'Could not initiate secure payment.');
         setIsProcessing(false);
       }

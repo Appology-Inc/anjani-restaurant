@@ -1038,9 +1038,7 @@ function renderMenu() {
             <span class="menu-price">${formatCurrency(item.price)}</span>
           </div>
           <div class="menu-actions">
-            <span style="font-size: 0.8rem; color: var(--text-secondary);">
-              <i class="ri-star-fill" style="color: #F59E0B"></i> ${item.rating || 4.5}
-            </span>
+            <div></div>
             <button class="btn-edit" data-id="${item.id}"><i class="ri-pencil-line"></i> Edit</button>
           </div>
         </div>

@@ -121,6 +121,70 @@ export const verifyRazorpayPayment = functions.https.onCall(async (data, context
 });
 
 /**
+ * Razorpay Webhook (True Failsafe)
+ * Razorpay calls this securely in the background when a payment is captured.
+ */
+export const razorpayWebhook = functions.https.onRequest(async (req, res) => {
+  // Razorpay sends the signature in the headers
+  const signature = req.headers['x-razorpay-signature'] as string;
+  const webhookSecret = 'anjani_secret_webhook_123'; // The user should set this in Razorpay Dashboard
+
+  if (!signature) {
+    res.status(400).send('Missing signature');
+    return;
+  }
+
+  try {
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    if (expectedSignature !== signature) {
+      console.warn('Webhook signature mismatch!');
+      res.status(401).send('Invalid signature');
+      return;
+    }
+
+    const event = req.body.event;
+    if (event === 'order.paid' || event === 'payment.captured') {
+      const paymentEntity = req.body.payload.payment.entity;
+      const orderId = paymentEntity.order_id;
+      const paymentId = paymentEntity.id;
+      
+      // We need to find the Firestore order that matches this Razorpay order ID.
+      // Since we stored the receipt ID as the firestore order ID in createRazorpayOrder...
+      const receiptId = req.body.payload.order?.entity?.receipt;
+
+      if (receiptId) {
+        const db = admin.firestore();
+        const orderRef = db.collection('orders').doc(receiptId);
+        const orderSnap = await orderRef.get();
+
+        if (orderSnap.exists) {
+          const data = orderSnap.data();
+          if (data?.status === 'PAYMENT_PENDING') {
+            await orderRef.update({
+              status: 'PLACED',
+              paymentStatus: 'PAID',
+              razorpayPaymentId: paymentId,
+              razorpayOrderId: orderId,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            console.log(`Webhook successfully fulfilled order ${receiptId}`);
+          }
+        }
+      }
+    }
+    
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+/**
  * Auto-transitions orders to PREPARING 25 seconds after ACCEPTED.
  */
 export const onOrderAccepted = functions.firestore.document('orders/{orderId}').onUpdate(async (change, context) => {

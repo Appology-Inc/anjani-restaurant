@@ -111,22 +111,21 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .brand-name {
-  font-family: 'Outfit', sans-serif;
-  background: linear-gradient(
-    120deg,
-    #FF6B00 0%,
-    #FFD180 25%,
-    #FFF 50%,
-    #FFD180 75%,
-    #FF6B00 100%
-  );
+  display: inline-block;
+  background: linear-gradient(120deg, #FF6B00 0%, #FFD180 25%, #FFFFFF 50%, #FFD180 75%, #FF6B00 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shinyBrandText 4s linear infinite;
-  display: inline-block;
+  font-family: 'Outfit', sans-serif;
   font-weight: 800;
+  animation: shinyBrandText 4s linear infinite;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.brand-name:active {
+  transform: scale(0.95);
+  opacity: 0.8;
 }
 
 .brand-word-second {
@@ -176,7 +175,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 6px;
   margin-left: 16px;
   padding-left: 16px;
@@ -1569,10 +1568,6 @@ input:checked + .slider:before { transform: translateX(20px); }
     padding: 0 6px;
     height: 18px;
     border-radius: 9px;
-  }
-
-  .connection-status .text {
-    display: none !important; /* Hide text, keep only dot indicator on medium screens */
   }
 
   .nav-right {
