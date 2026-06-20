@@ -41,7 +41,7 @@ export function LogoutOverlay() {
               // 4. Finally, disable isLoggingOut to unmount the overlay
               useAppStore.getState().setLoggingOut(false);
             });
-          }, 350);
+          }, 1500);
         } catch (error) {
           console.error('Transition logout error:', error);
           useAppStore.getState().setLoggingOut(false);

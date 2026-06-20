@@ -1409,14 +1409,14 @@ el.logoutBtn.addEventListener('click', async () => {
         console.error('Logout error:', err);
       }
       
-      // Wait 600ms for the page layout changes to settle behind the black overlay
+      // Wait 1500ms for the page layout changes to settle behind the black overlay
       setTimeout(() => {
         el.logoutScreen.classList.add('fade-out');
         // Wait 800ms for the fade-out transition to complete, then hide the overlay
         setTimeout(() => {
           el.logoutScreen.style.display = 'none';
         }, 800);
-      }, 600);
+      }, 1500);
     }, 500);
   }
 });
