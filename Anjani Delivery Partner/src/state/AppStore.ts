@@ -249,9 +249,13 @@ export const useAppStore = create<AppState>((set, get) => {
    */
   if (isFirebaseConfigured) {
     try {
-      const { collection, onSnapshot } = require('firebase/firestore');
+      const { collection, onSnapshot, query, where } = require('firebase/firestore');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startOfToday = today.getTime();
       const ordersRef = collection(db, 'orders');
-      onSnapshot(ordersRef, (snapshot: any) => {
+      const todayOrdersQuery = query(ordersRef, where('createdAt', '>=', startOfToday));
+      onSnapshot(todayOrdersQuery, (snapshot: any) => {
         const ordersList: ActiveOrder[] = [];
         const chatsObj: { [orderId: string]: ChatMessage[] } = {};
 

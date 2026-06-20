@@ -363,8 +363,14 @@ function initFirestoreSync() {
   }
 
   // Logic for Firebase data fetching: Listen to the "orders" collection in real-time
+  // Optimized: Only listen to orders created today to save Firebase reads
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startOfToday = today.getTime();
   const ordersRef = collection(db, 'orders');
-  unsubOrders = onSnapshot(ordersRef, (snapshot) => {
+  const todayOrdersQuery = query(ordersRef, where('createdAt', '>=', startOfToday));
+  
+  unsubOrders = onSnapshot(todayOrdersQuery, (snapshot) => {
     if (updateInFlight) {
       console.log('Skipping onSnapshot update — update in flight');
       return;
