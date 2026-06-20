@@ -204,10 +204,12 @@ interface AppState {
 
   // Previous Orders State
   previousOrders: PreviousOrder[];
-  hasMorePreviousOrders: boolean;
+  previousOrdersPage: number;
+  previousOrdersPageStarts: any[];
+  previousOrdersPageEnds: any[];
+  hasNextPage: boolean;
   loadingPreviousOrders: boolean;
-  lastPreviousOrderDoc: any;
-  fetchPreviousOrders: (reset?: boolean) => Promise<void>;
+  fetchPreviousOrders: (direction: 'initial' | 'next' | 'prev') => Promise<void>;
   reorder: (items: OrderItem[]) => void;
 
 
@@ -1322,74 +1324,66 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     previousOrders: [],
-    hasMorePreviousOrders: false,
+    previousOrdersPage: 0,
+    previousOrdersPageStarts: [],
+    previousOrdersPageEnds: [],
+    hasNextPage: false,
     loadingPreviousOrders: false,
-    lastPreviousOrderDoc: null,
-    fetchPreviousOrders: async (reset = false) => {
+    fetchPreviousOrders: async (direction = 'initial') => {
       if (!isFirebaseConfigured) return;
       const currentUserUid = get().currentUser?.uid || auth?.currentUser?.uid;
       if (!currentUserUid) return;
 
-      const isReset = reset || get().lastPreviousOrderDoc === null;
       if (get().loadingPreviousOrders) return;
       set({ loadingPreviousOrders: true });
 
       try {
-        const { collection, query, where, orderBy, limit, getDocs, startAfter } = require('firebase/firestore');
+        const { collection, query, where, orderBy, limit, getDocs, startAfter, startAt } = require('firebase/firestore');
         const ordersRef = collection(db, 'orders');
-        const PAGE_SIZE = 5;
+        const PAGE_SIZE = 10;
         let q;
-        const startDoc = isReset ? null : get().lastPreviousOrderDoc;
+        
+        let currentPage = get().previousOrdersPage;
+        const pageStarts = [...get().previousOrdersPageStarts];
+        const pageEnds = [...get().previousOrdersPageEnds];
 
-        try {
-          if (startDoc) {
-            q = query(
-              ordersRef,
-              where('customerUid', '==', currentUserUid),
-              where('status', 'in', ['DELIVERED', 'CANCELLED']),
-              orderBy('createdAt', 'desc'),
-              startAfter(startDoc),
-              limit(PAGE_SIZE)
-            );
-          } else {
-            q = query(
-              ordersRef,
-              where('customerUid', '==', currentUserUid),
-              where('status', 'in', ['DELIVERED', 'CANCELLED']),
-              orderBy('createdAt', 'desc'),
-              limit(PAGE_SIZE)
-            );
-          }
-        } catch (queryErr) {
-          console.warn('Error creating primary paginated query, using fallback:', queryErr);
-          if (startDoc) {
-            q = query(
-              ordersRef,
-              where('customerUid', '==', currentUserUid),
-              startAfter(startDoc),
-              limit(PAGE_SIZE)
-            );
-          } else {
-            q = query(
-              ordersRef,
-              where('customerUid', '==', currentUserUid),
-              limit(PAGE_SIZE)
-            );
-          }
+        if (direction === 'initial') {
+          currentPage = 0;
+          pageStarts.length = 0;
+          pageEnds.length = 0;
         }
 
-        let snapshot;
-        try {
-          snapshot = await getDocs(q);
-        } catch (fetchErr) {
-          console.warn('Failed fetching with primary/fallback query, attempting simple query:', fetchErr);
-          const simpleQ = query(
+        q = query(
+          ordersRef,
+          where('customerUid', '==', currentUserUid),
+          where('status', 'in', ['DELIVERED', 'CANCELLED']),
+          orderBy('createdAt', 'desc'),
+          limit(PAGE_SIZE)
+        );
+
+        if (direction === 'next' && pageEnds[currentPage]) {
+          currentPage++;
+          q = query(
             ordersRef,
             where('customerUid', '==', currentUserUid),
-            limit(50)
+            where('status', 'in', ['DELIVERED', 'CANCELLED']),
+            orderBy('createdAt', 'desc'),
+            startAfter(pageEnds[currentPage - 1]),
+            limit(PAGE_SIZE)
           );
-          snapshot = await getDocs(simpleQ);
+        } else if (direction === 'prev' && currentPage > 0) {
+          currentPage--;
+          q = query(
+            ordersRef,
+            where('customerUid', '==', currentUserUid),
+            where('status', 'in', ['DELIVERED', 'CANCELLED']),
+            orderBy('createdAt', 'desc'),
+            startAt(pageStarts[currentPage]),
+            limit(PAGE_SIZE)
+          );
         }
+
+        const snapshot = await getDocs(q);
 
         const prevList: PreviousOrder[] = [];
         snapshot.forEach((doc: any) => {
@@ -1411,25 +1405,23 @@ export const useAppStore = create<AppState>((set, get) => {
 
         prevList.sort((a, b) => b.timestamp - a.timestamp);
 
-        const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
-        const currentList = isReset ? [] : get().previousOrders;
-        const updatedList = [...currentList, ...prevList];
-
-        const seen = new Set();
-        const deduplicatedList = updatedList.filter(o => {
-          if (seen.has(o.id)) return false;
-          seen.add(o.id);
-          return true;
-        });
+        if (!snapshot.empty) {
+          pageStarts[currentPage] = snapshot.docs[0];
+          pageEnds[currentPage] = snapshot.docs[snapshot.docs.length - 1];
+        }
 
         set({
-          previousOrders: deduplicatedList,
-          lastPreviousOrderDoc: lastDoc,
-          hasMorePreviousOrders: snapshot.docs.length === PAGE_SIZE,
+          previousOrders: prevList,
+          previousOrdersPage: currentPage,
+          previousOrdersPageStarts: pageStarts,
+          previousOrdersPageEnds: pageEnds,
+          hasNextPage: snapshot.docs.length === PAGE_SIZE,
           loadingPreviousOrders: false,
         });
 
-        AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(deduplicatedList)).catch(() => {});
+        if (direction === 'initial') {
+           AsyncStorage.setItem('anjani_previous_orders', JSON.stringify(prevList)).catch(() => {});
+        }
       } catch (error) {
         console.warn('Error fetching previous orders:', error);
         set({ loadingPreviousOrders: false });

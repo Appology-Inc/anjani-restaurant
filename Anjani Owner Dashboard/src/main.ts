@@ -5,7 +5,7 @@
  * and chart rendering using Chart.js.
  */
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, doc, updateDoc, setDoc, query, where, getDocs, getDoc, limit, orderBy, startAfter } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, doc, updateDoc, setDoc, query, where, getDocs, getDoc, limit, orderBy, startAfter, startAt } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { MenuItems as InitialMenuItems, MenuCategories } from './menuData';
 
@@ -226,7 +226,9 @@ const el = {
     cancelledOrders: document.getElementById('hist-cancelled-orders') as HTMLElement,
     totalRevenue: document.getElementById('hist-total-revenue') as HTMLElement,
     tbody: document.getElementById('historical-tbody') as HTMLElement,
-    loadMoreBtn: document.getElementById('load-more-historical-btn') as HTMLButtonElement,
+    prevPageBtn: document.getElementById('prev-historical-btn') as HTMLButtonElement,
+    nextPageBtn: document.getElementById('next-historical-btn') as HTMLButtonElement,
+    pageIndicator: document.getElementById('historical-page-indicator') as HTMLElement,
     paginationContainer: document.getElementById('historical-pagination') as HTMLElement,
   },
 };
@@ -1059,21 +1061,29 @@ function renderMenu() {
 
 // --- Historical Data Logic ---
 
-let lastHistoricalDoc: any = null;
+let pageFirstDocs: any[] = [];
+let pageLastDocs: any[] = [];
+let currentHistoricalPage = 0;
 let currentHistoricalOrders: any[] = [];
 
 el.historical.fetchBtn.addEventListener('click', async () => {
-  lastHistoricalDoc = null;
+  pageFirstDocs = [];
+  pageLastDocs = [];
+  currentHistoricalPage = 0;
   currentHistoricalOrders = [];
   el.historical.paginationContainer.style.display = 'none';
-  await fetchHistoricalPage();
+  await fetchHistoricalPage('initial');
 });
 
-el.historical.loadMoreBtn.addEventListener('click', async () => {
-  await fetchHistoricalPage();
+el.historical.prevPageBtn.addEventListener('click', async () => {
+  await fetchHistoricalPage('prev');
 });
 
-async function fetchHistoricalPage() {
+el.historical.nextPageBtn.addEventListener('click', async () => {
+  await fetchHistoricalPage('next');
+});
+
+async function fetchHistoricalPage(direction: 'initial' | 'next' | 'prev') {
   const startStr = el.historical.startDate.value;
   const endStr = el.historical.endDate.value;
 
@@ -1093,11 +1103,14 @@ async function fetchHistoricalPage() {
 
   el.historical.fetchBtn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Retrieving...';
   el.historical.fetchBtn.disabled = true;
-  el.historical.loadMoreBtn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Loading...';
-  el.historical.loadMoreBtn.disabled = true;
+  el.historical.prevPageBtn.disabled = true;
+  el.historical.nextPageBtn.disabled = true;
+
+  let fetchedCount = 0;
 
   try {
     let newOrders: any[] = [];
+
     
     // Check if we are connected to Firebase
     if (auth.currentUser) {
@@ -1110,13 +1123,24 @@ async function fetchHistoricalPage() {
         limit(10)
       );
 
-      if (lastHistoricalDoc) {
+      if (direction === 'next' && pageLastDocs[currentHistoricalPage]) {
+        currentHistoricalPage++;
         q = query(
           ordersRef, 
           where('createdAt', '>=', startTimestamp), 
           where('createdAt', '<=', endTimestamp),
           orderBy('createdAt', 'desc'),
-          startAfter(lastHistoricalDoc),
+          startAfter(pageLastDocs[currentHistoricalPage - 1]),
+          limit(10)
+        );
+      } else if (direction === 'prev' && currentHistoricalPage > 0) {
+        currentHistoricalPage--;
+        q = query(
+          ordersRef, 
+          where('createdAt', '>=', startTimestamp), 
+          where('createdAt', '<=', endTimestamp),
+          orderBy('createdAt', 'desc'),
+          startAt(pageFirstDocs[currentHistoricalPage]),
           limit(10)
         );
       }
@@ -1124,13 +1148,14 @@ async function fetchHistoricalPage() {
       const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
-        lastHistoricalDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-        if (querySnapshot.docs.length < 10) {
-          el.historical.paginationContainer.style.display = 'none';
-        } else {
-          el.historical.paginationContainer.style.display = 'flex';
-        }
-      } else {
+        pageFirstDocs[currentHistoricalPage] = querySnapshot.docs[0];
+        pageLastDocs[currentHistoricalPage] = querySnapshot.docs[querySnapshot.docs.length - 1];
+        
+        el.historical.paginationContainer.style.display = 'flex';
+        el.historical.pageIndicator.textContent = `Page ${currentHistoricalPage + 1}`;
+        el.historical.prevPageBtn.disabled = currentHistoricalPage === 0;
+        el.historical.nextPageBtn.disabled = querySnapshot.docs.length < 10;
+      } else if (direction === 'initial') {
         el.historical.paginationContainer.style.display = 'none';
       }
 
@@ -1151,7 +1176,8 @@ async function fetchHistoricalPage() {
       el.historical.paginationContainer.style.display = 'none';
     }
 
-    currentHistoricalOrders = [...currentHistoricalOrders, ...newOrders];
+    currentHistoricalOrders = newOrders;
+    fetchedCount = newOrders.length;
     renderHistoricalTable(currentHistoricalOrders);
 
   } catch (error) {
@@ -1160,8 +1186,8 @@ async function fetchHistoricalPage() {
   } finally {
     el.historical.fetchBtn.innerHTML = '<i class="ri-search-eye-line"></i> Retrieve Data';
     el.historical.fetchBtn.disabled = false;
-    el.historical.loadMoreBtn.innerHTML = '<i class="ri-arrow-down-line"></i> Load More';
-    el.historical.loadMoreBtn.disabled = false;
+    el.historical.prevPageBtn.disabled = currentHistoricalPage === 0;
+    el.historical.nextPageBtn.disabled = fetchedCount < 10;
   }
 }
 

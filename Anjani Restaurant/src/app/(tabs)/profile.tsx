@@ -234,7 +234,8 @@ export default function ProfileScreen() {
     deleteSavedAddress, 
     selectSavedAddress, 
     previousOrders, 
-    hasMorePreviousOrders,
+    hasNextPage,
+    previousOrdersPage,
     loadingPreviousOrders,
     fetchPreviousOrders,
     activeOrders, 
@@ -777,21 +778,34 @@ export default function ProfileScreen() {
         ) : (
           <View>
             {previousOrders.map((order) => <OrderCard key={order.id} order={order} />)}
-            {hasMorePreviousOrders && (
-              <TouchableOpacity 
-                style={styles.loadMoreBtn} 
-                onPress={() => fetchPreviousOrders(false)}
-                disabled={loadingPreviousOrders}
-              >
-                {loadingPreviousOrders ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                  <>
-                    <Ionicons name="arrow-down-circle-outline" size={20} color={Colors.primary} />
-                    <Text style={styles.loadMoreTxt}>Load More</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+            {(previousOrdersPage > 0 || hasNextPage) && (
+              <View style={styles.paginationContainer}>
+                <TouchableOpacity 
+                  style={[styles.pageBtn, previousOrdersPage === 0 && styles.pageBtnDisabled]} 
+                  onPress={() => fetchPreviousOrders('prev')}
+                  disabled={loadingPreviousOrders || previousOrdersPage === 0}
+                >
+                  <Ionicons name="chevron-back" size={20} color={previousOrdersPage === 0 ? Colors.border : Colors.primary} />
+                  <Text style={[styles.pageBtnTxt, previousOrdersPage === 0 && styles.pageBtnTxtDisabled]}>Prev</Text>
+                </TouchableOpacity>
+
+                <View style={styles.pageIndicatorBox}>
+                  {loadingPreviousOrders ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <Text style={styles.pageIndicatorTxt}>Page {previousOrdersPage + 1}</Text>
+                  )}
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.pageBtn, !hasNextPage && styles.pageBtnDisabled]} 
+                  onPress={() => fetchPreviousOrders('next')}
+                  disabled={loadingPreviousOrders || !hasNextPage}
+                >
+                  <Text style={[styles.pageBtnTxt, !hasNextPage && styles.pageBtnTxtDisabled]}>Next</Text>
+                  <Ionicons name="chevron-forward" size={20} color={!hasNextPage ? Colors.border : Colors.primary} />
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         )}
@@ -1422,22 +1436,45 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.primary,
   },
-  loadMoreBtn: {
+  paginationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 12,
     marginVertical: 12,
-    paddingVertical: 14,
+  },
+  pageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 12,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  loadMoreTxt: {
+  pageBtnDisabled: {
+    opacity: 0.5,
+  },
+  pageBtnTxt: {
     fontSize: 14,
     fontWeight: '700',
     color: Colors.primary,
+  },
+  pageBtnTxtDisabled: {
+    color: Colors.textSecondary,
+  },
+  pageIndicatorBox: {
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageIndicatorTxt: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
   },
 
   // ── Logout ──
