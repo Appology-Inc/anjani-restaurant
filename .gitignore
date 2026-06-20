@@ -49,3 +49,9 @@ anjani-restaurant-firebase-adminsdk-fbsvc-fe6d70a99f.json
 **/google-services.json
 **/GoogleService-Info.plist
 
+
+# Auto-generated
+.firebase/
+playwright-report/
+test-results/
+
