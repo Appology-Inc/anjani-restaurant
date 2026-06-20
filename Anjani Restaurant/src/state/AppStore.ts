@@ -38,7 +38,7 @@ const AsyncStorage = Platform.OS === 'web' ? {
 import { db, auth, isFirebaseConfigured } from '../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { scheduleLocalNotification } from '../utils/notifications';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 
 const logToCrashlytics = (action: string, data?: any) => {
   if (Platform.OS !== 'web') {
@@ -321,7 +321,8 @@ export const useAppStore = create<AppState>((set, get) => {
             if (cloudUnsub) cloudUnsub();
             const ordersRef = collection(db, 'orders');
             const q = query(ordersRef, 
-              where('customerUid', '==', currentUserUid)
+              where('customerUid', '==', currentUserUid),
+              where('status', 'in', ['PAYMENT_PENDING', 'PLACED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'])
             );
             cloudUnsub = onSnapshot(q, (snapshot: any) => {
               const ordersList: ActiveOrder[] = [];
